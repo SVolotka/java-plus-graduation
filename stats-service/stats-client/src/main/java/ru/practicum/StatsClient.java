@@ -10,6 +10,8 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -49,12 +51,15 @@ public class StatsClient {
 
     public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end,
                                        List<String> uris, boolean unique) {
+        String encodedStart = URLEncoder.encode(start.format(FORMATTER), StandardCharsets.UTF_8);
+        String encodedEnd = URLEncoder.encode(end.format(FORMATTER), StandardCharsets.UTF_8);
+
         URI uri = UriComponentsBuilder.fromPath("/stats")
-                .queryParam("start", start.format(FORMATTER))
-                .queryParam("end", end.format(FORMATTER))
+                .queryParam("start", encodedStart)
+                .queryParam("end", encodedEnd)
                 .queryParam("unique", unique)
                 .queryParam("uris", uris != null ? String.join(",", uris) : null)
-                .build(true)   // включает кодирование параметров
+                .build(true)
                 .toUri();
 
         URI fullUri = getStatsServerUri(uri.toString());
