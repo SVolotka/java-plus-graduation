@@ -7,6 +7,7 @@ import org.springframework.http.*;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.time.LocalDateTime;
@@ -48,14 +49,16 @@ public class StatsClient {
 
     public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end,
                                        List<String> uris, boolean unique) {
-        String params = "?start=" + start.format(FORMATTER) +
-                "&end=" + end.format(FORMATTER) +
-                "&unique=" + unique;
-        if (uris != null && !uris.isEmpty()) {
-            params += "&uris=" + String.join(",", uris);
-        }
-        URI uri = getStatsServerUri("/stats" + params);
-        ResponseEntity<ViewStatsDto[]> response = restTemplate.getForEntity(uri, ViewStatsDto[].class);
+        URI uri = UriComponentsBuilder.fromPath("/stats")
+                .queryParam("start", start.format(FORMATTER))
+                .queryParam("end", end.format(FORMATTER))
+                .queryParam("unique", unique)
+                .queryParam("uris", uris != null ? String.join(",", uris) : null)
+                .build(true)   // включает кодирование параметров
+                .toUri();
+
+        URI fullUri = getStatsServerUri(uri.toString());
+        ResponseEntity<ViewStatsDto[]> response = restTemplate.getForEntity(fullUri, ViewStatsDto[].class);
         return List.of(response.getBody());
     }
 }
