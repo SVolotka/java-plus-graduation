@@ -8,13 +8,16 @@ import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import ru.practicum.exception.StatsServerUnavailable;
 
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
@@ -35,7 +38,7 @@ public class StatsClient {
                 discoveryClient.getInstances("stats-server")
                         .stream()
                         .findFirst()
-                        .orElseThrow(() -> new RuntimeException("Stats server not found")));
+                        .orElseThrow(() -> new StatsServerUnavailable("Stats server not found")));
         return URI.create("http://" + instance.getHost() + ":" + instance.getPort() + path);
     }
 
@@ -64,6 +67,6 @@ public class StatsClient {
 
         URI fullUri = getStatsServerUri(uri.toString());
         ResponseEntity<ViewStatsDto[]> response = restTemplate.getForEntity(fullUri, ViewStatsDto[].class);
-        return List.of(response.getBody());
+        return Arrays.asList(Objects.requireNonNull(response.getBody()));
     }
 }
