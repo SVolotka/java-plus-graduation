@@ -1,10 +1,11 @@
-package ru.practicum.request.service;
+package ru.yandex.practicum.core.requestService.service;
 
-import ru.practicum.request.dto.EventRequestStatusUpdateRequest;
-import ru.practicum.request.dto.EventRequestStatusUpdateResult;
-import ru.practicum.request.dto.ParticipationRequestDto;
+import ru.yandex.practicum.common.requestService.dto.EventRequestStatusUpdateRequest;
+import ru.yandex.practicum.common.requestService.dto.EventRequestStatusUpdateResult;
+import ru.yandex.practicum.common.requestService.dto.ParticipationRequestDto;
 
 import java.util.List;
+import java.util.Map;
 
 public interface RequestService {
 
@@ -17,4 +18,6 @@ public interface RequestService {
     List<ParticipationRequestDto> getEventParticipants(Long userId, Long eventId);
 
     EventRequestStatusUpdateResult changeRequestStatus(Long userId, Long eventId, EventRequestStatusUpdateRequest request);
+
+    Map<Long, Long> getConfirmedRequestsForEvents(List<Long> eventIds);
 }

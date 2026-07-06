@@ -22,6 +22,7 @@
     <modules>
         <module>main-service</module>
         <module>user-service</module>
+        <module>request-service</module>
     </modules>
 
 </project>

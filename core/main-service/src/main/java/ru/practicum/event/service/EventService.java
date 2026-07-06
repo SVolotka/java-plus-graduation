@@ -27,4 +27,6 @@ public interface EventService {
     EventFullDto findEventByIdAndUser(Long userId, Long eventId);
 
     EventFullDto saveNewEvent(Long userId, NewEventDto newEventDto);
+
+    EventFullDto findEventByIdInternal(Long id);
 }

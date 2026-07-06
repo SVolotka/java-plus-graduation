@@ -11,12 +11,12 @@ import org.springframework.web.bind.annotation.*;
 import ru.practicum.event.dto.NewEventDto;
 import ru.practicum.event.dto.PatchEventDto;
 import ru.practicum.event.service.EventService;
-import ru.practicum.request.dto.EventRequestStatusUpdateRequest;
-import ru.practicum.request.dto.EventRequestStatusUpdateResult;
-import ru.practicum.request.dto.ParticipationRequestDto;
-import ru.practicum.request.service.RequestService;
 import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
 import ru.yandex.practicum.common.eventService.event.dto.EventShortDto;
+import ru.yandex.practicum.common.feignClient.RequestClient;
+import ru.yandex.practicum.common.requestService.dto.EventRequestStatusUpdateRequest;
+import ru.yandex.practicum.common.requestService.dto.EventRequestStatusUpdateResult;
+import ru.yandex.practicum.common.requestService.dto.ParticipationRequestDto;
 
 import java.util.List;
 
@@ -27,7 +27,7 @@ import java.util.List;
 public class PrivateEventController {
 
     private final EventService eventService;
-    private final RequestService requestService;
+    private final RequestClient requestClient;
 
     @GetMapping
     public ResponseEntity<List<EventShortDto>> findEventsBy(
@@ -64,7 +64,7 @@ public class PrivateEventController {
     public ResponseEntity<List<ParticipationRequestDto>> findRequestsForEventsByUser(
             @PathVariable @Min(1) Long userId,
             @PathVariable @Min(1) Long eventId) {
-        return ResponseEntity.ok(requestService.getEventParticipants(userId, eventId));
+        return ResponseEntity.ok(requestClient.getEventParticipants(userId, eventId));
     }
 
     @PatchMapping("/{eventId}/requests")
@@ -72,6 +72,6 @@ public class PrivateEventController {
             @PathVariable @Min(1) Long userId,
             @PathVariable @Min(1) Long eventId,
             @RequestBody @NotNull EventRequestStatusUpdateRequest eventRequestStatusUpdateRequest) {
-        return ResponseEntity.ok(requestService.changeRequestStatus(userId, eventId, eventRequestStatusUpdateRequest));
+        return ResponseEntity.ok(requestClient.changeRequestStatus(userId, eventId, eventRequestStatusUpdateRequest));
     }
 }

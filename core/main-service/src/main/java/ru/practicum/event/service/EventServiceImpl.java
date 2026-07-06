@@ -28,10 +28,10 @@ import ru.practicum.event.specification.EventSpecification;
 import ru.practicum.event.specification.PublicEventSpecification;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
-import ru.practicum.request.repository.RequestRepository;
 import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
 import ru.yandex.practicum.common.eventService.event.dto.EventShortDto;
 import ru.yandex.practicum.common.exception.ValidationException;
+import ru.yandex.practicum.common.feignClient.RequestClient;
 import ru.yandex.practicum.common.feignClient.UserClient;
 import ru.yandex.practicum.common.userService.dto.UserDto;
 import ru.yandex.practicum.common.userService.dto.UserShortDto;
@@ -52,10 +52,10 @@ public class EventServiceImpl implements EventService {
 
     private final EventRepository eventRepository;
     private final CategoryRepository categoryRepository;
-    private final RequestRepository requestRepository;
     private final EventMapper eventMapper;
     private final StatsClient statsClient;
     private final UserClient userClient;
+    private final RequestClient requestClient;
 
     @Override
     public List<EventShortDto> findEventsBy(PublicEventParam param, HttpServletRequest httpServletRequest) {
@@ -125,7 +125,7 @@ public class EventServiceImpl implements EventService {
         UserShortDto initiator = getUserShortDto(event.getInitiatorId());
         EventFullDto dto = eventMapper.toFullDto(event, initiator);
         dto.setViews(getStats(event));
-        dto.setConfirmedRequests(requestRepository.countConfirmedRequestsByEventId(id));
+        dto.setConfirmedRequests(requestClient.getConfirmedRequestsForEvents(List.of(id)).getOrDefault(id, 0L));
         return dto;
     }
 
@@ -161,7 +161,7 @@ public class EventServiceImpl implements EventService {
                 throw new ConflictException("Дата начала должна быть не ранее чем за час от публикации.");
             }
         }
-        dto.setConfirmedRequests(requestRepository.countConfirmedRequestsByEventId(id));
+        dto.setConfirmedRequests(requestClient.getConfirmedRequestsForEvents(List.of(id)).getOrDefault(id, 0L));
         return dto;
     }
 
@@ -246,6 +246,18 @@ public class EventServiceImpl implements EventService {
         return eventMapper.toFullDto(createdEvent, initiator);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public EventFullDto findEventByIdInternal(Long id) {
+        Event event = eventRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Событие с id = " + id + " не существует."));
+        UserShortDto initiator = getUserShortDto(event.getInitiatorId());
+        EventFullDto dto = eventMapper.toFullDto(event, initiator);
+        dto.setViews(0L);
+        dto.setConfirmedRequests(0L);
+        return dto;
+    }
+
     private void checkUserExists(Long userId) {
         UserDto user = userClient.getById(userId);
         if (user == null) {
@@ -323,12 +335,7 @@ public class EventServiceImpl implements EventService {
             return Collections.emptyMap();
         }
         List<Long> ids = events.stream().map(Event::getId).toList();
-        List<Object[]> results = requestRepository.countConfirmedRequestsForEvents(ids);
-        return results.stream()
-                .collect(Collectors.toMap(
-                        o -> (Long) o[0],
-                        o -> (Long) o[1]
-                ));
+        return requestClient.getConfirmedRequestsForEvents(ids);
     }
 
     private void saveHit(HttpServletRequest request) {

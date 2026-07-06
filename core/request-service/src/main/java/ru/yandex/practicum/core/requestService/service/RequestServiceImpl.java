@@ -1,27 +1,30 @@
-package ru.practicum.request.service;
+package ru.yandex.practicum.core.requestService.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.event.entity.Event;
-import ru.practicum.event.enums.State;
-import ru.practicum.event.repository.EventRepository;
-import ru.practicum.exception.ConflictException;
-import ru.practicum.exception.NotFoundException;
-import ru.practicum.exception.ValidationException;
-import ru.practicum.request.dto.EventRequestStatusUpdateRequest;
-import ru.practicum.request.dto.EventRequestStatusUpdateResult;
-import ru.practicum.request.dto.ParticipationRequestDto;
-import ru.practicum.request.entity.ParticipationRequest;
-import ru.practicum.request.enums.RequestStatus;
-import ru.practicum.request.mapper.RequestMapper;
-import ru.practicum.request.repository.RequestRepository;
+import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
+import ru.yandex.practicum.common.eventService.event.enums.State;
+import ru.yandex.practicum.common.exception.ConflictException;
+import ru.yandex.practicum.common.exception.NotFoundException;
+import ru.yandex.practicum.common.exception.ValidationException;
+import ru.yandex.practicum.common.feignClient.EventClient;
 import ru.yandex.practicum.common.feignClient.UserClient;
+import ru.yandex.practicum.common.requestService.dto.EventRequestStatusUpdateRequest;
+import ru.yandex.practicum.common.requestService.dto.EventRequestStatusUpdateResult;
+import ru.yandex.practicum.common.requestService.dto.ParticipationRequestDto;
+import ru.yandex.practicum.common.requestService.enums.RequestStatus;
 import ru.yandex.practicum.common.userService.dto.UserDto;
+import ru.yandex.practicum.core.requestService.entity.ParticipationRequest;
+import ru.yandex.practicum.core.requestService.mapper.RequestMapper;
+import ru.yandex.practicum.core.requestService.repository.RequestRepository;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -30,9 +33,9 @@ import java.util.List;
 public class RequestServiceImpl implements RequestService {
 
     private final RequestRepository requestRepository;
-    private final EventRepository eventRepository;
     private final RequestMapper requestMapper;
     private final UserClient userClient;
+    private final EventClient eventClient;
 
     @Override
     public List<ParticipationRequestDto> getUserRequests(Long userId) {
@@ -56,13 +59,16 @@ public class RequestServiceImpl implements RequestService {
         if (requester == null) {
             throw new NotFoundException(String.format("Пользователь с id = %d не найден", userId));
         }
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new NotFoundException(String.format("Событие с id = %d не найдено", eventId)));
 
-        if (event.getInitiatorId().equals(userId)) {
+        EventFullDto event = eventClient.getEventById(eventId);
+        if (event == null) {
+            throw new NotFoundException(String.format("Событие с id = %d не найдено", eventId));
+        }
+
+        if (event.getInitiator().getId().equals(userId)) {
             throw new ConflictException("Инициатор события не может добавить запрос на участие в своём событии");
         }
-        if (!event.getState().equals(State.PUBLISHED)) {
+        if (!State.PUBLISHED.name().equals(event.getState())) {
             throw new ConflictException("Нельзя участвовать в неопубликованном событии");
         }
         if (requestRepository.existsByRequesterIdAndEventId(userId, eventId)) {
@@ -75,7 +81,7 @@ public class RequestServiceImpl implements RequestService {
         RequestStatus status = (!event.getRequestModeration() || event.getParticipantLimit() == 0)
                 ? RequestStatus.CONFIRMED : RequestStatus.PENDING;
 
-        ParticipationRequest request = requestMapper.toEntity(userId, event, status);
+        ParticipationRequest request = requestMapper.toEntity(userId, eventId, status);
         ParticipationRequest savedRequest = requestRepository.save(request);
         return requestMapper.toDto(savedRequest);
     }
@@ -105,9 +111,11 @@ public class RequestServiceImpl implements RequestService {
         if (user == null) {
             throw new NotFoundException(String.format("Пользователь с id = %d не найден", userId));
         }
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new NotFoundException(String.format("Событие с id = %d не найдено", eventId)));
-        if (!event.getInitiatorId().equals(userId)) {
+        EventFullDto event = eventClient.getEventById(eventId);
+        if (event == null) {
+            throw new NotFoundException(String.format("Событие с id = %d не найдено", eventId));
+        }
+        if (!event.getInitiator().getId().equals(userId)) {
             throw new NotFoundException(String.format("Событие с id = %d не принадлежит пользователю %d", eventId, userId));
         }
         List<ParticipationRequest> requests = requestRepository.findAllByEventId(eventId);
@@ -123,12 +131,14 @@ public class RequestServiceImpl implements RequestService {
         if (user == null) {
             throw new NotFoundException(String.format("Пользователь с id = %d не найден", userId));
         }
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new NotFoundException(String.format("Событие с id = %d не найдено", eventId)));
-        if (!event.getInitiatorId().equals(userId)) {
+        EventFullDto event = eventClient.getEventById(eventId);
+        if (event == null) {
+            throw new NotFoundException(String.format("Событие с id = %d не найдено", eventId));
+        }
+        if (!event.getInitiator().getId().equals(userId)) {
             throw new NotFoundException(String.format("Событие с id = %d не принадлежит пользователю %d", eventId, userId));
         }
-        if (!event.getState().equals(State.PUBLISHED)) {
+        if (!State.PUBLISHED.name().equals(event.getState())) {
             throw new ConflictException("Нельзя изменять статус заявок для неопубликованного события");
         }
         Long confirmedRequests = requestRepository.countConfirmedRequestsByEventId(eventId);
@@ -176,5 +186,18 @@ public class RequestServiceImpl implements RequestService {
                 .confirmedRequests(requestMapper.toDtoList(confirmedRequestsList))
                 .rejectedRequests(requestMapper.toDtoList(rejectedRequestsList))
                 .build();
+    }
+
+    @Override
+    public Map<Long, Long> getConfirmedRequestsForEvents(List<Long> eventIds) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Object[]> results = requestRepository.countConfirmedRequestsForEvents(eventIds);
+        return results.stream()
+                .collect(Collectors.toMap(
+                        o -> (Long) o[0],
+                        o -> (Long) o[1]
+                ));
     }
 }

@@ -1,10 +1,9 @@
-package ru.practicum.request.mapper;
+package ru.yandex.practicum.core.requestService.mapper;
 
 import org.springframework.stereotype.Component;
-import ru.practicum.event.entity.Event;
-import ru.practicum.request.dto.ParticipationRequestDto;
-import ru.practicum.request.entity.ParticipationRequest;
-import ru.practicum.request.enums.RequestStatus;
+import ru.yandex.practicum.common.requestService.dto.ParticipationRequestDto;
+import ru.yandex.practicum.common.requestService.enums.RequestStatus;
+import ru.yandex.practicum.core.requestService.entity.ParticipationRequest;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -16,11 +15,11 @@ public class RequestMapper {
 
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public ParticipationRequest toEntity(Long requesterId, Event event, RequestStatus status) {
+    public ParticipationRequest toEntity(Long requesterId, Long eventId, RequestStatus status) {
         return ParticipationRequest.builder()
                 .created(LocalDateTime.now())
                 .requesterId(requesterId)
-                .event(event)
+                .eventId(eventId)
                 .status(status)
                 .build();
     }
@@ -29,7 +28,7 @@ public class RequestMapper {
         return ParticipationRequestDto.builder()
                 .id(request.getId())
                 .created(formatter.format(request.getCreated()))
-                .event(request.getEvent().getId())
+                .event(request.getRequesterId())
                 .requester(request.getRequesterId())
                 .status(request.getStatus().name())
                 .build();
