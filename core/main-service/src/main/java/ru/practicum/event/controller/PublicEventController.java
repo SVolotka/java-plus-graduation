@@ -6,10 +6,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.event.dto.EventFullDto;
-import ru.practicum.event.dto.EventShortDto;
 import ru.practicum.event.entityparam.PublicEventParam;
 import ru.practicum.event.service.EventService;
+import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
+import ru.yandex.practicum.common.eventService.event.dto.EventShortDto;
 
 import java.util.List;
 

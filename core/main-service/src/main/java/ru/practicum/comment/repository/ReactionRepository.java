@@ -17,8 +17,6 @@ public interface ReactionRepository extends JpaRepository<Reaction, Long> {
             "GROUP BY r.voteType")
     List<Object[]> getLikesAndDislikesCount(Long commentId);
 
-    @Query("SELECT r " +
-            "FROM Reaction r " +
-            "WHERE r.evaluator.id = :evaluatorId AND r.comment.id = :commentId")
+    @Query("SELECT r FROM Reaction r WHERE r.evaluatorId = :evaluatorId AND r.comment.id = :commentId")
     Optional<Reaction> existByUserAndComment(Long evaluatorId, Long commentId);
 }

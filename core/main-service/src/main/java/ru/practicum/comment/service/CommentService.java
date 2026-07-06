@@ -3,6 +3,10 @@ package ru.practicum.comment.service;
 import org.springframework.data.domain.Page;
 import ru.practicum.comment.dto.*;
 import ru.practicum.comment.enums.CommentsSortType;
+import ru.yandex.practicum.common.comment.dto.CommentDto;
+import ru.yandex.practicum.common.comment.dto.CommentResponseDto;
+import ru.yandex.practicum.common.comment.dto.CommentStatsResponse;
+import ru.yandex.practicum.common.comment.dto.ReactionResponseDto;
 
 import java.util.List;
 

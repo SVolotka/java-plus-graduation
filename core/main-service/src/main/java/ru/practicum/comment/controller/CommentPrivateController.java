@@ -8,9 +8,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.comment.dto.CommentDto;
 import ru.practicum.comment.dto.CommentRequestDto;
 import ru.practicum.comment.service.CommentService;
+import ru.yandex.practicum.common.comment.dto.CommentDto;
 
 @RestController
 @RequiredArgsConstructor

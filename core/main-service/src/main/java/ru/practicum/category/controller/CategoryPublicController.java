@@ -5,8 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.category.dto.CategoryDto;
 import ru.practicum.category.service.CategoryPublicService;
+import ru.yandex.practicum.common.eventService.category.dto.CategoryDto;
 
 import java.util.List;
 

@@ -8,10 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.PatchEventDto;
 import ru.practicum.event.entityparam.AdminEventParam;
 import ru.practicum.event.service.EventService;
+import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
 
 import java.util.List;
 

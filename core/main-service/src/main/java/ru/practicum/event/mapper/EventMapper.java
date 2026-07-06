@@ -7,8 +7,11 @@ import ru.practicum.category.mapper.CategoryMapper;
 import ru.practicum.event.dto.*;
 import ru.practicum.event.entity.Event;
 import ru.practicum.event.enums.State;
-import ru.practicum.user.entity.User;
-import ru.practicum.user.mapper.UserMapper;
+import ru.practicum.event.entity.Location;
+import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
+import ru.yandex.practicum.common.eventService.event.dto.EventShortDto;
+import ru.yandex.practicum.common.eventService.event.model.LocationDto;
+import ru.yandex.practicum.common.userService.dto.UserShortDto;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -20,17 +23,16 @@ import java.util.Map;
 public class EventMapper {
 
     private final CategoryMapper categoryMapper;
-    private final UserMapper userMapper;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public EventFullDto toFullDto(Event event) {
+    public EventFullDto toFullDto(Event event, UserShortDto initiator) {
         EventFullDto eventFullDto = EventFullDto.builder()
                 .id(event.getId())
                 .annotation(event.getAnnotation())
                 .category(categoryMapper.toCategoryDto(event.getCategory()))
                 .description(event.getDescription())
-                .initiator(userMapper.toUserShortDto(event.getInitiator()))
-                .location(event.getLocation())
+                .initiator(initiator)
+                .location(toLocationDto(event.getLocation()))
                 .paid(event.getPaid())
                 .participantLimit(event.getParticipantLimit())
                 .requestModeration(event.getRequestModeration())
@@ -41,59 +43,58 @@ public class EventMapper {
         if (event.getCreatedOn() != null) {
             eventFullDto.setCreatedOn(formatter.format(event.getCreatedOn()));
         }
-
         if (event.getEventDate() != null) {
             eventFullDto.setEventDate(formatter.format(event.getEventDate()));
         }
-
         if (event.getPublishedOn() != null) {
             eventFullDto.setPublishedOn(formatter.format(event.getPublishedOn()));
         }
-
         return eventFullDto;
     }
 
-    public List<EventShortDto> toListShortDtoWithViewsAndRequests(
-            List<Event> events, Map<Long, Long> viewsForEvents, Map<Long, Long> requests) {
-        return events.stream()
-                .map(e -> {
-                    EventShortDto eventShortDto = toShortDto(e);
-                    eventShortDto.setViews(viewsForEvents.getOrDefault(e.getId(), 0L));
-                    eventShortDto.setConfirmedRequests(requests.getOrDefault(e.getId(), 0L));
-                    return eventShortDto;
-                })
-                .toList();
-    }
-
-    public List<EventFullDto> toListFullDtoWithViewsAndRequests(
-            List<Event> events, Map<Long, Long> viewsForEvents, Map<Long, Long> requests) {
-        return events.stream()
-                .map(e -> {
-                    EventFullDto eventFullDto = toFullDto(e);
-                    eventFullDto.setViews(viewsForEvents.getOrDefault(e.getId(), 0L));
-                    eventFullDto.setConfirmedRequests(requests.getOrDefault(e.getId(), 0L));
-                    return eventFullDto;
-                })
-                .toList();
-    }
-
-    public EventShortDto toShortDto(Event event) {
+    public EventShortDto toShortDto(Event event, UserShortDto initiator) {
         return EventShortDto.builder()
                 .id(event.getId())
                 .annotation(event.getAnnotation())
                 .category(categoryMapper.toCategoryDto(event.getCategory()))
                 .eventDate(formatter.format(event.getEventDate()))
-                .initiator(userMapper.toUserShortDto(event.getInitiator()))
+                .initiator(initiator)
                 .paid(event.getPaid())
                 .title(event.getTitle())
                 .build();
     }
 
-    public Event toEntity(NewEventDto newEventDto, User user, Category category) {
+    public List<EventShortDto> toListShortDtoWithViewsAndRequests(
+            List<Event> events, Map<Long, Long> viewsForEvents,
+            Map<Long, Long> requests, Map<Long, UserShortDto> users) {
+        return events.stream()
+                .map(e -> {
+                    EventShortDto dto = toShortDto(e, users.get(e.getInitiatorId()));
+                    dto.setViews(viewsForEvents.getOrDefault(e.getId(), 0L));
+                    dto.setConfirmedRequests(requests.getOrDefault(e.getId(), 0L));
+                    return dto;
+                })
+                .toList();
+    }
+
+    public List<EventFullDto> toListFullDtoWithViewsAndRequests(
+            List<Event> events, Map<Long, Long> viewsForEvents,
+            Map<Long, Long> requests, Map<Long, UserShortDto> users) {
+        return events.stream()
+                .map(e -> {
+                    EventFullDto dto = toFullDto(e, users.get(e.getInitiatorId()));
+                    dto.setViews(viewsForEvents.getOrDefault(e.getId(), 0L));
+                    dto.setConfirmedRequests(requests.getOrDefault(e.getId(), 0L));
+                    return dto;
+                })
+                .toList();
+    }
+
+    public Event toEntity(NewEventDto newEventDto, Long userId, Category category) {
         Event event = Event.builder()
                 .annotation(newEventDto.getAnnotation())
                 .category(category)
-                .initiator(user)
+                .initiatorId(userId)
                 .location(newEventDto.getLocation())
                 .description(newEventDto.getDescription())
                 .createdOn(LocalDateTime.now())
@@ -107,19 +108,21 @@ public class EventMapper {
         } else {
             event.setPaid(false);
         }
-
         if (newEventDto.getParticipantLimit() != null) {
             event.setParticipantLimit(newEventDto.getParticipantLimit());
         } else {
             event.setParticipantLimit(0);
         }
-
         if (newEventDto.getRequestModeration() != null) {
             event.setRequestModeration(newEventDto.getRequestModeration());
         } else {
             event.setRequestModeration(true);
         }
-
         return event;
+    }
+
+    private LocationDto toLocationDto(Location location) {
+        if (location == null) return null;
+        return new LocationDto(location.getLat(), location.getLon());
     }
 }

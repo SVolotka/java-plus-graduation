@@ -21,8 +21,12 @@ import ru.practicum.event.entity.Event;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
-import ru.practicum.user.entity.User;
-import ru.practicum.user.repository.UserRepository;
+import ru.yandex.practicum.common.comment.dto.CommentDto;
+import ru.yandex.practicum.common.comment.dto.CommentResponseDto;
+import ru.yandex.practicum.common.comment.dto.CommentStatsResponse;
+import ru.yandex.practicum.common.comment.dto.ReactionResponseDto;
+import ru.yandex.practicum.common.feignClient.UserClient;
+import ru.yandex.practicum.common.userService.dto.UserDto;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,22 +39,21 @@ import java.util.Optional;
 public class CommentServiceImpl implements CommentService {
 
     private final CommentRepository commentRepository;
-    private final UserRepository userRepository;
     private final EventRepository eventRepository;
     private final CommentMapper commentMapper;
     private final ReactionRepository reactionRepository;
     private final ReactionMapper reactionMapper;
+    private final UserClient userClient;
 
     @Override
     @Transactional
     public CommentDto create(CommentRequestDto commentRequestDto, Long commentatorId, Long eventId) {
-        log.info("Создание комментария: commentatorId={}, eventId={}",
-                commentatorId, eventId);
+        log.info("Создание комментария: commentatorId={}, eventId={}", commentatorId, eventId);
 
-        User commentator = userRepository.findById(commentatorId).orElseThrow(() -> {
-            log.warn("Пользователь с id={} не найден при создании комментария", commentatorId);
-            return new NotFoundException("Пользователь с id = " + commentatorId + " не найден");
-        });
+        UserDto userDto = userClient.getById(commentatorId);
+        if (userDto == null) {
+            throw new NotFoundException("Пользователь с id = " + commentatorId + " не найден");
+        }
 
         Event event = eventRepository.findById(eventId).orElseThrow(() -> {
             log.warn("Событие с id={} не найдено при создании комментария", eventId);
@@ -58,7 +61,7 @@ public class CommentServiceImpl implements CommentService {
         });
 
         Comment commentCreate = Comment.builder()
-                .commentator(commentator)
+                .commentatorId(commentatorId)
                 .event(event)
                 .created(LocalDateTime.now())
                 .text(commentRequestDto.getText())
@@ -72,22 +75,17 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     @Transactional
-    public CommentDto update(
-            CommentRequestDto commentRequestDto,
-            Long eventId,
-            Long commentatorId,
-            Long commentId) {
-        log.info("Обновление комментария: commentId={}, eventId={}, commentatorId={}",
-                commentId, eventId, commentatorId);
+    public CommentDto update(CommentRequestDto commentRequestDto, Long eventId, Long commentatorId, Long commentId) {
+        log.info("Обновление комментария: commentId={}, eventId={}, commentatorId={}", commentId, eventId, commentatorId);
 
         Comment commentFindById = commentRepository.findById(commentId).orElseThrow(() -> {
             log.warn("Комментарий с id={} не найден для обновления", commentId);
             return new NotFoundException("комментарий с id = " + commentId + " не найден");
         });
 
-        if (!commentFindById.getCommentator().getId().equals(commentatorId)) {
+        if (!commentFindById.getCommentatorId().equals(commentatorId)) {
             log.warn("Попытка редактирования чужого комментария: commentId={}, commentatorId={}, автор={}",
-                    commentId, commentatorId, commentFindById.getCommentator().getId());
+                    commentId, commentatorId, commentFindById.getCommentatorId());
             throw new ConflictException("редактировать комментарий может только его автор");
         }
 
@@ -101,8 +99,7 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional
     public void delete(Long eventId, Long commentId, Long userId) {
-        log.info("Удаление комментария пользователем: eventId={}, commentId={}, userId={}",
-                eventId, commentId, userId);
+        log.info("Удаление комментария пользователем: eventId={}, commentId={}, userId={}", eventId, commentId, userId);
 
         Event event = eventRepository.findById(eventId).orElseThrow(() -> {
             log.warn("Событие с id={} не найдено при удалении комментария", eventId);
@@ -119,11 +116,14 @@ public class CommentServiceImpl implements CommentService {
             throw new ConflictException("Комментарий с id = " + commentId + " не относится к событию с id = " + eventId);
         }
 
-        if (!comment.getCommentator().getId().equals(userId) && !event.getInitiator().getId().equals(userId)) {
-            log.warn("Пользователь id={} не является автором и не инициатор события для комментария id={}",
-                    userId, commentId);
+        boolean isAuthor = comment.getCommentatorId().equals(userId);
+        boolean isEventInitiator = event.getInitiatorId().equals(userId);
+
+        if (!isAuthor && !isEventInitiator) {
+            log.warn("Пользователь id={} не является автором и не инициатор события для комментария id={}", userId, commentId);
             throw new ConflictException("комментарий может удалять только его автор или инициатор события");
         }
+
         commentRepository.deleteById(commentId);
         log.info("Комментарий с id={} успешно удалён пользователем id={}", commentId, userId);
     }
@@ -172,10 +172,10 @@ public class CommentServiceImpl implements CommentService {
         log.info("Добавление реакции: evaluatorId={}, commentId={}, voteType={}",
                 evaluatorId, commentId, voteType);
 
-        User evaluator = userRepository.findById(evaluatorId).orElseThrow(() -> {
-            log.warn("Пользователь с id={} не найден при добавлении реакции", evaluatorId);
-            return new NotFoundException("Пользователь с id = " + evaluatorId + " не найден");
-        });
+        UserDto evaluator = userClient.getById(evaluatorId);
+        if (evaluator == null) {
+            throw new NotFoundException("Пользователь с id = " + evaluatorId + " не найден");
+        }
 
         Comment comment = commentRepository.findById(commentId).orElseThrow(() -> {
             log.warn("Комментарий с id={} не найден при добавлении реакции", commentId);
@@ -184,26 +184,25 @@ public class CommentServiceImpl implements CommentService {
 
         Optional<Reaction> reactionOpt = reactionRepository.existByUserAndComment(evaluatorId, commentId);
 
+        Reaction reaction;
         if (reactionOpt.isPresent()) {
-            Reaction reaction = reactionOpt.get();
+            reaction = reactionOpt.get();
             if (!reaction.getVoteType().equals(voteType)) {
                 reaction.setVoteType(voteType);
-                Reaction savedReaction = reactionRepository.save(reaction);
-                log.info("Реакция обновлена: id={}, voteType={}", savedReaction.getId(), voteType);
-                return reactionMapper.toReactionResponseDto(savedReaction);
+                reaction = reactionRepository.save(reaction);
+                log.info("Реакция обновлена: id={}, voteType={}", reaction.getId(), voteType);
             }
-            return reactionMapper.toReactionResponseDto(reaction);
+        } else {
+            reaction = Reaction.builder()
+                    .voteType(voteType)
+                    .evaluatorId(evaluatorId)
+                    .comment(comment)
+                    .build();
+            reaction = reactionRepository.save(reaction);
+            log.info("Реакция создана: id={}, voteType={}", reaction.getId(), voteType);
         }
 
-        Reaction reactionForSave = Reaction.builder()
-                .voteType(voteType)
-                .evaluator(evaluator)
-                .comment(comment)
-                .build();
-
-        Reaction createdReaction = reactionRepository.save(reactionForSave);
-        log.info("Реакция создана: id={}, voteType={}", createdReaction.getId(), voteType);
-        return reactionMapper.toReactionResponseDto(createdReaction);
+        return reactionMapper.toReactionResponseDto(reaction, userClient.getById(evaluatorId));
     }
 
     @Override
@@ -238,7 +237,6 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional(readOnly = true)
     public List<CommentResponseDto> getCommentsBy(CommentsSortType sort, String direction, Integer from, Integer size) {
-
         Pageable pageable = PageRequest.of(from, size);
 
         List<Comment> comments;

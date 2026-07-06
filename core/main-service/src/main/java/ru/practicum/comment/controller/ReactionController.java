@@ -8,11 +8,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.comment.dto.CommentResponseDto;
-import ru.practicum.comment.dto.CommentStatsResponse;
-import ru.practicum.comment.dto.ReactionResponseDto;
 import ru.practicum.comment.enums.CommentsSortType;
 import ru.practicum.comment.service.CommentService;
+import ru.yandex.practicum.common.comment.dto.CommentResponseDto;
+import ru.yandex.practicum.common.comment.dto.CommentStatsResponse;
+import ru.yandex.practicum.common.comment.dto.ReactionResponseDto;
 
 import java.util.List;
 

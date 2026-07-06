@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.category.dto.CategoryDto;
 import ru.practicum.category.dto.CategoryRequestDto;
 import ru.practicum.category.entity.Category;
 import ru.practicum.category.mapper.CategoryMapper;
@@ -13,6 +12,7 @@ import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
 import ru.practicum.exception.ValidationException;
+import ru.yandex.practicum.common.eventService.category.dto.CategoryDto;
 
 @Slf4j
 @Service

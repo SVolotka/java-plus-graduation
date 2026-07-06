@@ -31,7 +31,7 @@ public class AdminEventSpecification implements EventSpecification {
         Specification<Event> spec = Specification.where(null);
 
         if (users != null && !users.isEmpty()) {
-            spec = spec.and((root, query, criteriaBuilder) -> root.get("initiator").get("id").in(users));
+            spec = spec.and((root, query, criteriaBuilder) -> root.get("initiatorId").in(users));
         }
 
         if (states != null && !states.isEmpty()) {

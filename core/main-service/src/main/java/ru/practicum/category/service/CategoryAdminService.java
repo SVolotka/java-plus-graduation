@@ -1,7 +1,7 @@
 package ru.practicum.category.service;
 
-import ru.practicum.category.dto.CategoryDto;
 import ru.practicum.category.dto.CategoryRequestDto;
+import ru.yandex.practicum.common.eventService.category.dto.CategoryDto;
 
 public interface CategoryAdminService {
 

@@ -4,9 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import ru.practicum.event.dto.NewEventDto;
 import ru.practicum.event.entityparam.AdminEventParam;
 import ru.practicum.event.entityparam.PublicEventParam;
-import ru.practicum.event.dto.EventFullDto;
-import ru.practicum.event.dto.EventShortDto;
 import ru.practicum.event.dto.PatchEventDto;
+import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
+import ru.yandex.practicum.common.eventService.event.dto.EventShortDto;
 
 import java.util.List;
 

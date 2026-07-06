@@ -6,7 +6,6 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import ru.practicum.user.entity.User;
 
 import java.time.LocalDateTime;
 
@@ -31,9 +30,8 @@ public class Reaction {
     @JoinColumn(name = "comment_id", nullable = false)
     Comment comment;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "evaluator_id", nullable = false)
-    User evaluator;
+    @Column(name = "evaluator_id", nullable = false)
+    Long evaluatorId;
 
     @CreationTimestamp
     @Column(name = "created_time")

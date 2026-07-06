@@ -5,7 +5,6 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import ru.practicum.category.entity.Category;
 import ru.practicum.event.enums.State;
-import ru.practicum.user.entity.User;
 
 import java.time.LocalDateTime;
 
@@ -33,9 +32,8 @@ public class Event {
     @Column(name = "created_on")
     LocalDateTime createdOn;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "initiator_id", nullable = false)
-    User initiator;
+    @Column(name = "initiator_id", nullable = false)
+    Long initiatorId;
 
     @Embedded
     Location location;

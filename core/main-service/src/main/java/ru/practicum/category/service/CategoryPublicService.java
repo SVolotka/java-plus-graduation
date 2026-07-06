@@ -1,7 +1,7 @@
 package ru.practicum.category.service;
 
 import org.springframework.data.domain.Pageable;
-import ru.practicum.category.dto.CategoryDto;
+import ru.yandex.practicum.common.eventService.category.dto.CategoryDto;
 
 import java.util.List;
 

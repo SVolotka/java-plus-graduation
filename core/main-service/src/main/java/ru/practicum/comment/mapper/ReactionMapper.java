@@ -2,11 +2,11 @@ package ru.practicum.comment.mapper;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import ru.practicum.comment.dto.CommentResponseDto;
-import ru.practicum.comment.dto.ReactionResponseDto;
 import ru.practicum.comment.entity.Reaction;
-import ru.practicum.user.dto.UserShortDto;
-import ru.practicum.user.mapper.UserMapper;
+import ru.yandex.practicum.common.comment.dto.CommentResponseDto;
+import ru.yandex.practicum.common.comment.dto.ReactionResponseDto;
+import ru.yandex.practicum.common.userService.dto.UserDto;
+import ru.yandex.practicum.common.userService.dto.UserShortDto;
 
 import java.time.format.DateTimeFormatter;
 
@@ -14,12 +14,12 @@ import java.time.format.DateTimeFormatter;
 @RequiredArgsConstructor
 public class ReactionMapper {
 
-    private final UserMapper userMapper;
     private final CommentMapper commentMapper;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public ReactionResponseDto toReactionResponseDto(Reaction reaction) {
-        UserShortDto userShortDto = userMapper.toUserShortDto(reaction.getEvaluator());
+    public ReactionResponseDto toReactionResponseDto(Reaction reaction, UserDto userDto) {
+        // Преобразуем UserDto → UserShortDto (берём только id и name)
+        UserShortDto userShortDto = new UserShortDto(userDto.getId(), userDto.getName());
         CommentResponseDto commentResponseDto = commentMapper.toCommentResponseDto(reaction.getComment());
 
         ReactionResponseDto reactionResponseDto = ReactionResponseDto.builder()
