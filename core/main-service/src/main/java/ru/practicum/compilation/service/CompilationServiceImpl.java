@@ -12,8 +12,8 @@ import ru.practicum.compilation.mapper.CompilationMapper;
 import ru.practicum.compilation.repository.CompilationRepository;
 import ru.practicum.event.entity.Event;
 import ru.practicum.event.repository.EventRepository;
-import ru.practicum.exception.ConflictException;
-import ru.practicum.exception.NotFoundException;
+import ru.yandex.practicum.common.exception.ConflictException;
+import ru.yandex.practicum.common.exception.NotFoundException;
 
 import java.util.ArrayList;
 import java.util.Collections;

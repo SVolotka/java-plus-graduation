@@ -26,10 +26,10 @@ import ru.practicum.event.repository.EventRepository;
 import ru.practicum.event.specification.AdminEventSpecification;
 import ru.practicum.event.specification.EventSpecification;
 import ru.practicum.event.specification.PublicEventSpecification;
-import ru.practicum.exception.ConflictException;
-import ru.practicum.exception.NotFoundException;
 import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
 import ru.yandex.practicum.common.eventService.event.dto.EventShortDto;
+import ru.yandex.practicum.common.exception.ConflictException;
+import ru.yandex.practicum.common.exception.NotFoundException;
 import ru.yandex.practicum.common.exception.ValidationException;
 import ru.yandex.practicum.common.feignClient.RequestClient;
 import ru.yandex.practicum.common.feignClient.UserClient;
@@ -59,6 +59,16 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public List<EventShortDto> findEventsBy(PublicEventParam param, HttpServletRequest httpServletRequest) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        if (param.getRangeStart() != null && !param.getRangeStart().isBlank() &&
+                param.getRangeEnd() != null && !param.getRangeEnd().isBlank()) {
+            LocalDateTime start = LocalDateTime.parse(param.getRangeStart(), formatter);
+            LocalDateTime end = LocalDateTime.parse(param.getRangeEnd(), formatter);
+            if (start.isAfter(end)) {
+                throw new ValidationException("rangeStart не может быть позже rangeEnd");
+            }
+        }
+
         saveHit(httpServletRequest);
 
         EventSpecification specification = PublicEventSpecification.builder()
@@ -288,12 +298,6 @@ public class EventServiceImpl implements EventService {
             log.warn("Failed to fetch users: {}", e.getMessage());
             return Collections.emptyMap();
         }
-//        if (events.isEmpty()) {
-//            return Collections.emptyMap();
-//        }
-//        List<Long> ids = events.stream().map(Event::getInitiatorId).distinct().toList();
-//        List<UserShortDto> users = userClient.getUsersByIds(ids);
-//        return users.stream().collect(Collectors.toMap(UserShortDto::getId, Function.identity()));
     }
 
     private Map<Long, Long> getViews(List<Event> events) {

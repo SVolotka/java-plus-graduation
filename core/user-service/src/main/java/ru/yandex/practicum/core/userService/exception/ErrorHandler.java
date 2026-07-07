@@ -10,50 +10,84 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.yandex.practicum.common.exception.ConflictException;
 import ru.yandex.practicum.common.exception.NotFoundException;
 import ru.yandex.practicum.common.exception.ValidationException;
-import ru.yandex.practicum.common.exception.model.ErrorResponse;
+import ru.yandex.practicum.common.exception.model.ApiError;
+
+import java.time.LocalDateTime;
 
 @Slf4j
 @RestControllerAdvice
 public class ErrorHandler {
+
     @ExceptionHandler(ConflictException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
-    public ErrorResponse handleConflict(ConflictException e) {
+    public ApiError handleConflict(ConflictException e) {
         log.warn("Conflict: {}", e.getMessage());
-        return new ErrorResponse("Conflict", e.getMessage());
+        return ApiError.builder()
+                .status("CONFLICT")
+                .reason("Integrity constraint has been violated.")
+                .message(e.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
     }
 
     @ExceptionHandler(NotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ErrorResponse handleNotFound(NotFoundException e) {
+    public ApiError handleNotFound(NotFoundException e) {
         log.warn("Not found: {}", e.getMessage());
-        return new ErrorResponse("Not Found", e.getMessage());
+        return ApiError.builder()
+                .status("NOT_FOUND")
+                .reason("The required object was not found.")
+                .message(e.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
     }
 
     @ExceptionHandler(ValidationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleValidation(ValidationException e) {
+    public ApiError handleValidation(ValidationException e) {
         log.warn("Validation error: {}", e.getMessage());
-        return new ErrorResponse("Bad Request", e.getMessage());
+        return ApiError.builder()
+                .status("BAD_REQUEST")
+                .reason("Incorrectly made request.")
+                .message(e.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
+    public ApiError handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
         log.warn("Validation error: {}", e.getMessage());
-        return new ErrorResponse("Bad Request", e.getBindingResult().getAllErrors().get(0).getDefaultMessage());
+        String message = e.getBindingResult().getAllErrors().getFirst().getDefaultMessage();
+        return ApiError.builder()
+                .status("BAD_REQUEST")
+                .reason("Incorrectly made request.")
+                .message(message)
+                .timestamp(LocalDateTime.now())
+                .build();
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
-    public ErrorResponse handleDataIntegrity(DataIntegrityViolationException e) {
+    public ApiError handleDataIntegrity(DataIntegrityViolationException e) {
         log.warn("Data integrity violation: {}", e.getMessage());
-        return new ErrorResponse("Conflict", e.getMostSpecificCause().getMessage());
+        return ApiError.builder()
+                .status("CONFLICT")
+                .reason("Integrity constraint has been violated.")
+                .message(e.getMostSpecificCause().getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
     }
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ErrorResponse handleAll(Exception e) {
+    public ApiError handleAll(Exception e) {
         log.error("Unexpected error", e);
-        return new ErrorResponse("Internal Server Error", "Произошла непредвиденная ошибка");
+        return ApiError.builder()
+                .status("INTERNAL_SERVER_ERROR")
+                .reason("Unexpected error")
+                .message(e.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
     }
 }

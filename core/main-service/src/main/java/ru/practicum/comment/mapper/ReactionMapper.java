@@ -18,7 +18,6 @@ public class ReactionMapper {
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public ReactionResponseDto toReactionResponseDto(Reaction reaction, UserDto userDto) {
-        // Преобразуем UserDto → UserShortDto (берём только id и name)
         UserShortDto userShortDto = new UserShortDto(userDto.getId(), userDto.getName());
         CommentResponseDto commentResponseDto = commentMapper.toCommentResponseDto(reaction.getComment());
 

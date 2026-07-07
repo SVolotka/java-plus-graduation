@@ -19,12 +19,12 @@ import ru.practicum.comment.repository.CommentRepository;
 import ru.practicum.comment.repository.ReactionRepository;
 import ru.practicum.event.entity.Event;
 import ru.practicum.event.repository.EventRepository;
-import ru.practicum.exception.ConflictException;
-import ru.practicum.exception.NotFoundException;
 import ru.yandex.practicum.common.comment.dto.CommentDto;
 import ru.yandex.practicum.common.comment.dto.CommentResponseDto;
 import ru.yandex.practicum.common.comment.dto.CommentStatsResponse;
 import ru.yandex.practicum.common.comment.dto.ReactionResponseDto;
+import ru.yandex.practicum.common.exception.ConflictException;
+import ru.yandex.practicum.common.exception.NotFoundException;
 import ru.yandex.practicum.common.feignClient.UserClient;
 import ru.yandex.practicum.common.userService.dto.UserDto;
 

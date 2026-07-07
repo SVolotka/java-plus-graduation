@@ -9,10 +9,10 @@ import ru.practicum.category.entity.Category;
 import ru.practicum.category.mapper.CategoryMapper;
 import ru.practicum.category.repository.CategoryRepository;
 import ru.practicum.event.repository.EventRepository;
-import ru.practicum.exception.ConflictException;
-import ru.practicum.exception.NotFoundException;
-import ru.practicum.exception.ValidationException;
 import ru.yandex.practicum.common.eventService.category.dto.CategoryDto;
+import ru.yandex.practicum.common.exception.ConflictException;
+import ru.yandex.practicum.common.exception.NotFoundException;
+import ru.yandex.practicum.common.exception.ValidationException;
 
 @Slf4j
 @Service
