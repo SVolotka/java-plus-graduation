@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
 
-@FeignClient(name = "main-service")
+@FeignClient(name = "event-service")
 public interface EventClient {
 
     @GetMapping("/internal/events/{id}")
