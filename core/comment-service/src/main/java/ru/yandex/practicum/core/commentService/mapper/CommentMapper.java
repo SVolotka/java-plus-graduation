@@ -1,11 +1,11 @@
-package ru.practicum.comment.mapper;
+package ru.yandex.practicum.core.commentService.mapper;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import ru.practicum.comment.dto.CommentRequestDto;
-import ru.practicum.comment.entity.Comment;
 import ru.yandex.practicum.common.comment.dto.CommentDto;
 import ru.yandex.practicum.common.comment.dto.CommentResponseDto;
+import ru.yandex.practicum.core.commentService.dto.CommentRequestDto;
+import ru.yandex.practicum.core.commentService.entity.Comment;
 
 @Mapper(componentModel = "spring")
 public interface CommentMapper {
@@ -13,12 +13,11 @@ public interface CommentMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "created", ignore = true)
     @Mapping(target = "commentatorId", ignore = true)
-    @Mapping(target = "event", ignore = true)
+    @Mapping(target = "eventId", ignore = true)
     Comment toComment(CommentRequestDto commentRequestDto);
 
-    @Mapping(source = "commentatorId", target = "commentatorId")
     CommentResponseDto toCommentResponseDto(Comment comment);
 
-    @Mapping(source = "commentatorId", target = "commentatorId")
+    @Mapping(source = "eventId", target = "eventId")
     CommentDto toCommentDto(Comment comment);
 }

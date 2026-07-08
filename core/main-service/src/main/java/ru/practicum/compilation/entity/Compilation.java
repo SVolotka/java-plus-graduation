@@ -11,20 +11,26 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import ru.practicum.event.entity.Event;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Data
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "compilations")
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Getter
+@Setter
+@ToString
+@EqualsAndHashCode(of = "id")
 public class Compilation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

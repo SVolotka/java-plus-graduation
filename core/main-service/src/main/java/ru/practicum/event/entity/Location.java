@@ -4,12 +4,14 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "locations")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Embeddable
+@Getter
+@Setter
+@ToString
 public class Location {
     @Column(name = "lat", nullable = false)
     Float lat;

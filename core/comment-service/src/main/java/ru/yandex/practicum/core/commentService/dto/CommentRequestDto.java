@@ -1,7 +1,11 @@
-package ru.practicum.comment.dto;
+package ru.yandex.practicum.core.commentService.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 @Data

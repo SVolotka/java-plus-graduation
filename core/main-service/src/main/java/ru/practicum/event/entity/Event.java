@@ -8,13 +8,16 @@ import ru.practicum.event.enums.State;
 
 import java.time.LocalDateTime;
 
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Entity
 @Table(name = "events")
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Getter
+@Setter
+@ToString
+@EqualsAndHashCode(of = "id")
 public class Event {
 
     @Id

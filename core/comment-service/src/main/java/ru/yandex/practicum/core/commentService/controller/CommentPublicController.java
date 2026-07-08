@@ -1,4 +1,4 @@
-package ru.practicum.comment.controller;
+package ru.yandex.practicum.core.commentService.controller;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import ru.practicum.comment.service.CommentService;
 import ru.yandex.practicum.common.comment.dto.CommentResponseDto;
+import ru.yandex.practicum.core.commentService.service.CommentService;
 
 
 @RestController
