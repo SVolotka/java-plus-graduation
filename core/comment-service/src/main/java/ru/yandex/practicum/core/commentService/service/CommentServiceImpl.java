@@ -8,7 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.yandex.practicum.common.comment.dto.CommentDto;
 import ru.yandex.practicum.common.comment.dto.CommentResponseDto;
 import ru.yandex.practicum.common.comment.dto.CommentStatsResponse;
@@ -30,7 +30,6 @@ import ru.yandex.practicum.core.commentService.repository.CommentRepository;
 import ru.yandex.practicum.core.commentService.repository.ReactionRepository;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -41,7 +40,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class CommentServiceImpl implements CommentService {
 
     private final CommentRepository commentRepository;
@@ -50,6 +48,7 @@ public class CommentServiceImpl implements CommentService {
     private final ReactionMapper reactionMapper;
     private final UserClient userClient;
     private final EventClient eventClient;
+    private final TransactionTemplate transactionTemplate;
 
     private UserDto getUserById(Long userId) {
         try {
@@ -74,167 +73,116 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    @Transactional
     public CommentDto create(CommentRequestDto commentRequestDto, Long commentatorId, Long eventId) {
-        log.info("Создание комментария: commentatorId={}, eventId={}", commentatorId, eventId);
+        UserDto userDto = getUserById(commentatorId);
+        EventFullDto event = getEventById(eventId);
 
-        Comment commentCreate = Comment.builder()
-                .commentatorId(commentatorId)
-                .eventId(eventId)
-                .created(LocalDateTime.now())
-                .text(commentRequestDto.getText())
-                .build();
-
-        Comment commentSaved = commentRepository.save(commentCreate);
-        log.info("Комментарий успешно создан с id: {}", commentSaved.getId());
-
-        return commentMapper.toCommentDto(commentSaved);
+        Comment comment = transactionTemplate.execute(status -> {
+            Comment commentCreate = Comment.builder()
+                    .commentatorId(commentatorId)
+                    .eventId(eventId)
+                    .created(LocalDateTime.now())
+                    .text(commentRequestDto.getText())
+                    .build();
+            return commentRepository.save(commentCreate);
+        });
+        return commentMapper.toCommentDto(comment);
     }
 
     @Override
-    @Transactional
     public CommentDto update(CommentRequestDto commentRequestDto, Long eventId, Long commentatorId, Long commentId) {
-        log.info("Обновление комментария: commentId={}, eventId={}, commentatorId={}", commentId, eventId, commentatorId);
-
-        Comment commentFindById = commentRepository.findById(commentId).orElseThrow(() -> {
-            log.warn("Комментарий с id={} не найден для обновления", commentId);
-            return new NotFoundException("комментарий с id = " + commentId + " не найден");
-        });
-
+        Comment commentFindById = commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("комментарий с id = " + commentId + " не найден"));
         if (!commentFindById.getCommentatorId().equals(commentatorId)) {
             throw new ConflictException("редактировать комментарий может только его автор");
         }
-
         commentFindById.setText(commentRequestDto.getText());
-        Comment commentUpdate = commentRepository.save(commentFindById);
-        log.info("Комментарий с id={} успешно обновлён", commentUpdate.getId());
-
-        return commentMapper.toCommentDto(commentUpdate);
+        Comment updated = transactionTemplate.execute(status -> commentRepository.save(commentFindById));
+        return commentMapper.toCommentDto(updated);
     }
 
     @Override
-    @Transactional
     public void delete(Long eventId, Long commentId, Long userId) {
-        log.info("Удаление комментария пользователем: eventId={}, commentId={}, userId={}", eventId, commentId, userId);
-
-        Comment comment = commentRepository.findById(commentId).orElseThrow(() -> {
-            log.warn("Комментарий с id={} не найден при удалении", commentId);
-            return new NotFoundException("комментария с id = " + commentId + " не существует");
-        });
-
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("комментария с id = " + commentId + " не существует"));
         if (!eventId.equals(comment.getEventId())) {
-            throw new ConflictException("Комментарий с id = " + commentId + " не относится к событию с id = " + eventId);
+            throw new ConflictException("Комментарий не относится к событию");
         }
-
         EventFullDto event = getEventById(eventId);
-
         boolean isAuthor = comment.getCommentatorId().equals(userId);
         boolean isEventInitiator = event.getInitiator().getId().equals(userId);
-
         if (!isAuthor && !isEventInitiator) {
             throw new ConflictException("комментарий может удалять только его автор или инициатор события");
         }
-
-        commentRepository.deleteById(commentId);
-        log.info("Комментарий с id={} успешно удалён пользователем id={}", commentId, userId);
+        transactionTemplate.executeWithoutResult(status -> commentRepository.deleteById(commentId));
     }
 
     @Override
-    @Transactional
     public void deleteByAdmin(Long commentId) {
-        log.info("Удаление комментария администратором: commentId={}", commentId);
-
         if (!commentRepository.existsById(commentId)) {
             throw new NotFoundException("комментария с id = " + commentId + " не существует");
         }
-
-        commentRepository.deleteById(commentId);
-        log.info("Комментарий с id={} успешно удалён администратором", commentId);
+        transactionTemplate.executeWithoutResult(status -> commentRepository.deleteById(commentId));
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<CommentResponseDto> getCommentsByEvent(Long eventId, String sortOrder, int from, int size) {
-        log.info("Запрос комментариев события: eventId={}, sortOrder={}, from={}, size={}", eventId, sortOrder, from, size);
-
-        getEventById(eventId);
-
+        getEventById(eventId); // проверка существования события
         Sort sort = Sort.by("created");
         if ("desc".equalsIgnoreCase(sortOrder)) {
             sort = sort.descending();
         } else {
             sort = sort.ascending();
         }
-
         Pageable pageable = PageRequest.of(from, size, sort);
         Page<Comment> comments = commentRepository.findAllByEventId(eventId, pageable);
         return comments.map(commentMapper::toCommentResponseDto);
     }
 
     @Override
-    @Transactional
     public ReactionResponseDto addVote(Long evaluatorId, Long commentId, String voteType) {
-        log.info("Добавление реакции: evaluatorId={}, commentId={}, voteType={}", evaluatorId, commentId, voteType);
-
         UserDto evaluator = getUserById(evaluatorId);
-
-        Comment comment = commentRepository.findById(commentId).orElseThrow(() -> {
-            log.warn("Комментарий с id={} не найден при добавлении реакции", commentId);
-            return new NotFoundException("Комментарий с id = " + commentId + " не найден");
-        });
-
-        Optional<Reaction> reactionOpt = reactionRepository.existByUserAndComment(evaluatorId, commentId);
-
-        Reaction reaction;
-        if (reactionOpt.isPresent()) {
-            reaction = reactionOpt.get();
-            if (!reaction.getVoteType().equals(voteType)) {
-                reaction.setVoteType(voteType);
-                reaction = reactionRepository.save(reaction);
-                log.info("Реакция обновлена: id={}, voteType={}", reaction.getId(), voteType);
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("Комментарий с id = " + commentId + " не найден"));
+        Reaction reaction = transactionTemplate.execute(status -> {
+            Optional<Reaction> reactionOpt = reactionRepository.existByUserAndComment(evaluatorId, commentId);
+            if (reactionOpt.isPresent()) {
+                Reaction r = reactionOpt.get();
+                if (!r.getVoteType().equals(voteType)) {
+                    r.setVoteType(voteType);
+                    return reactionRepository.save(r);
+                }
+                return r;
+            } else {
+                Reaction newReaction = Reaction.builder()
+                        .voteType(voteType)
+                        .evaluatorId(evaluatorId)
+                        .commentId(commentId)
+                        .build();
+                return reactionRepository.save(newReaction);
             }
-        } else {
-            reaction = Reaction.builder()
-                    .voteType(voteType)
-                    .evaluatorId(evaluatorId)
-                    .commentId(commentId)
-                    .build();
-            reaction = reactionRepository.save(reaction);
-            log.info("Реакция создана: id={}, voteType={}", reaction.getId(), voteType);
-        }
-
+        });
         CommentResponseDto commentResponseDto = commentMapper.toCommentResponseDto(comment);
         return reactionMapper.toReactionResponseDto(reaction, evaluator, commentResponseDto);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public CommentStatsResponse getReactionStatsByComment(Long commentId) {
         if (!commentRepository.existsById(commentId)) {
             throw new NotFoundException("комментария с id = " + commentId + " не существует");
         }
-
         List<Object[]> results = reactionRepository.getLikesAndDislikesCount(commentId);
-
-        long likes = 0;
-        long dislikes = 0;
-
+        long likes = 0, dislikes = 0;
         for (Object[] row : results) {
-            String voteType = (String) row[0];
-            Long count = (Long) row[1];
-
-            if (voteType.equals(CommentsSortType.LIKE.name())) {
-                likes = count;
-            } else if (voteType.equals(CommentsSortType.DISLIKE.name())) {
-                dislikes = count;
-            }
+            String vt = (String) row[0];
+            Long cnt = (Long) row[1];
+            if (vt.equals(CommentsSortType.LIKE.name())) likes = cnt;
+            else if (vt.equals(CommentsSortType.DISLIKE.name())) dislikes = cnt;
         }
-
         return new CommentStatsResponse(commentId, likes, dislikes);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<CommentResponseDto> getCommentsBy(CommentsSortType sort, String direction, Integer from, Integer size) {
         List<Long> commentIds;
         if (direction.equalsIgnoreCase(DirectionSortType.ASC.name())) {
@@ -242,18 +190,13 @@ public class CommentServiceImpl implements CommentService {
         } else {
             commentIds = reactionRepository.findCommentIdsByVoteTypeDesc(String.valueOf(sort));
         }
-
         int start = Math.min(from, commentIds.size());
         int end = Math.min(from + size, commentIds.size());
-        if (start >= end) {
-            return Collections.emptyList();
-        }
+        if (start >= end) return List.of();
         List<Long> pageIds = commentIds.subList(start, end);
-
         List<Comment> comments = commentRepository.findAllById(pageIds);
         Map<Long, Comment> commentMap = comments.stream()
                 .collect(Collectors.toMap(Comment::getId, Function.identity()));
-
         return pageIds.stream()
                 .map(commentMap::get)
                 .filter(Objects::nonNull)

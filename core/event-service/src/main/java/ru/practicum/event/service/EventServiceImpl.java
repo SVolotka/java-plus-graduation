@@ -8,7 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.practicum.EndpointHitDto;
 import ru.practicum.StatsClient;
 import ru.practicum.ViewStatsDto;
@@ -47,7 +47,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@Transactional(readOnly = true)
 public class EventServiceImpl implements EventService {
 
     private final EventRepository eventRepository;
@@ -56,6 +55,7 @@ public class EventServiceImpl implements EventService {
     private final StatsClient statsClient;
     private final UserClient userClient;
     private final RequestClient requestClient;
+    private final TransactionTemplate transactionTemplate;
 
     @Override
     public List<EventShortDto> findEventsBy(PublicEventParam param, HttpServletRequest httpServletRequest) {
@@ -140,72 +140,6 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
-    @Transactional
-    public EventFullDto patchEvent(Long id, PatchEventDto patchEventDto) {
-        Event event = eventRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Событие с id = " + id + " отсутствует."));
-
-        if (event.getState() != State.PENDING) {
-            throw new ConflictException("Событие можно публиковать только в состоянии ожидания.");
-        }
-
-        if (patchEventDto.getStateAction() != null) {
-            switch (patchEventDto.getStateAction()) {
-                case "PUBLISH_EVENT" -> {
-                    event.setState(State.PUBLISHED);
-                    event.setPublishedOn(LocalDateTime.now());
-                }
-                case "REJECT_EVENT" -> event.setState(State.CANCELED);
-            }
-        }
-
-        patchFieldValidation(event, patchEventDto);
-        eventRepository.save(event);
-
-        UserShortDto initiator = getUserShortDto(event.getInitiatorId());
-        EventFullDto dto = eventMapper.toFullDto(event, initiator);
-
-        if (event.getPublishedOn() != null) {
-            dto.setViews(getStats(event));
-            if (event.getEventDate().plusHours(1).isBefore(event.getPublishedOn())) {
-                throw new ConflictException("Дата начала должна быть не ранее чем за час от публикации.");
-            }
-        }
-        dto.setConfirmedRequests(requestClient.getConfirmedRequestsForEvents(List.of(id)).getOrDefault(id, 0L));
-        return dto;
-    }
-
-    @Override
-    @Transactional
-    public EventFullDto patchEventByUser(Long userId, Long eventId, PatchEventDto patchEventDto) {
-        checkUserExists(userId);
-
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new NotFoundException("Событие с id = " + eventId + " отсутствует."));
-
-        if (event.getState() != State.PENDING && event.getState() != State.CANCELED) {
-            throw new ConflictException("События со статусом PUBLISHED нельзя изменять.");
-        }
-
-        if (patchEventDto.getStateAction() != null) {
-            switch (patchEventDto.getStateAction()) {
-                case "CANCEL_REVIEW" -> event.setState(State.CANCELED);
-                case "SEND_TO_REVIEW" -> event.setState(State.PENDING);
-            }
-        }
-
-        patchFieldValidation(event, patchEventDto);
-        eventRepository.save(event);
-
-        UserShortDto initiator = getUserShortDto(event.getInitiatorId());
-        EventFullDto dto = eventMapper.toFullDto(event, initiator);
-        if (event.getPublishedOn() != null) {
-            dto.setViews(getStats(event));
-        }
-        return dto;
-    }
-
-    @Override
     public List<EventShortDto> findEventsBy(Long userId, Integer from, Integer size) {
         checkUserExists(userId);
 
@@ -236,28 +170,6 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
-    @Transactional
-    public EventFullDto saveNewEvent(Long userId, NewEventDto newEventDto) {
-        checkUserExists(userId);
-
-        Category category = categoryRepository.findById(newEventDto.getCategory())
-                .orElseThrow(() -> new NotFoundException("Категории с id = " + newEventDto.getCategory() + " не существует."));
-
-        LocalDateTime eventDate = LocalDateTime.parse(newEventDto.getEventDate(),
-                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        if (eventDate.isBefore(LocalDateTime.now().plusHours(2))) {
-            throw new ValidationException("Дата события должна быть не ранее чем через 2 часа от текущего момента");
-        }
-
-        Event event = eventMapper.toEntity(newEventDto, userId, category);
-        Event createdEvent = eventRepository.save(event);
-
-        UserShortDto initiator = getUserShortDto(userId);
-        return eventMapper.toFullDto(createdEvent, initiator);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public EventFullDto findEventByIdInternal(Long id) {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Событие с id = " + id + " не существует."));
@@ -265,6 +177,101 @@ public class EventServiceImpl implements EventService {
         EventFullDto dto = eventMapper.toFullDto(event, initiator);
         dto.setViews(0L);
         dto.setConfirmedRequests(0L);
+        return dto;
+    }
+
+    @Override
+    public EventFullDto saveNewEvent(Long userId, NewEventDto newEventDto) {
+        checkUserExists(userId);
+
+        LocalDateTime eventDate = LocalDateTime.parse(newEventDto.getEventDate(),
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        if (eventDate.isBefore(LocalDateTime.now().plusHours(2))) {
+            throw new ValidationException("Дата события должна быть не ранее чем через 2 часа от текущего момента");
+        }
+
+        Event createdEvent = transactionTemplate.execute(status -> {
+            Category category = categoryRepository.findById(newEventDto.getCategory())
+                    .orElseThrow(() -> new NotFoundException("Категории с id = " + newEventDto.getCategory() + " не существует."));
+            Event event = eventMapper.toEntity(newEventDto, userId, category);
+            return eventRepository.save(event);
+        });
+
+        UserShortDto initiator = getUserShortDto(userId);
+        return eventMapper.toFullDto(createdEvent, initiator);
+    }
+
+    @Override
+    public EventFullDto patchEvent(Long id, PatchEventDto patchEventDto) {
+        // Предварительная проверка (stateAction) без транзакции
+        if (patchEventDto.getStateAction() != null) {
+            switch (patchEventDto.getStateAction()) {
+                case "PUBLISH_EVENT", "REJECT_EVENT" -> {} // ok
+                default -> throw new ValidationException("Недопустимое действие: " + patchEventDto.getStateAction());
+            }
+        }
+
+        Event updatedEvent = transactionTemplate.execute(status -> {
+            Event event = eventRepository.findById(id)
+                    .orElseThrow(() -> new NotFoundException("Событие с id = " + id + " отсутствует."));
+            if (event.getState() != State.PENDING) {
+                throw new ConflictException("Событие можно публиковать только в состоянии ожидания.");
+            }
+
+            if (patchEventDto.getStateAction() != null) {
+                switch (patchEventDto.getStateAction()) {
+                    case "PUBLISH_EVENT" -> {
+                        event.setState(State.PUBLISHED);
+                        event.setPublishedOn(LocalDateTime.now());
+                    }
+                    case "REJECT_EVENT" -> event.setState(State.CANCELED);
+                }
+            }
+
+            patchFieldValidation(event, patchEventDto);
+            return eventRepository.save(event);
+        });
+
+        UserShortDto initiator = getUserShortDto(updatedEvent.getInitiatorId());
+        EventFullDto dto = eventMapper.toFullDto(updatedEvent, initiator);
+        if (updatedEvent.getPublishedOn() != null) {
+            dto.setViews(getStats(updatedEvent));
+            if (updatedEvent.getEventDate().plusHours(1).isBefore(updatedEvent.getPublishedOn())) {
+                throw new ConflictException("Дата начала должна быть не ранее чем за час от публикации.");
+            }
+        }
+        dto.setConfirmedRequests(requestClient.getConfirmedRequestsForEvents(List.of(id)).getOrDefault(id, 0L));
+        return dto;
+    }
+
+    @Override
+    public EventFullDto patchEventByUser(Long userId, Long eventId, PatchEventDto patchEventDto) {
+        checkUserExists(userId);
+
+        Event updatedEvent = transactionTemplate.execute(status -> {
+            Event event = eventRepository.findById(eventId)
+                    .orElseThrow(() -> new NotFoundException("Событие с id = " + eventId + " отсутствует."));
+
+            if (event.getState() != State.PENDING && event.getState() != State.CANCELED) {
+                throw new ConflictException("События со статусом PUBLISHED нельзя изменять.");
+            }
+
+            if (patchEventDto.getStateAction() != null) {
+                switch (patchEventDto.getStateAction()) {
+                    case "CANCEL_REVIEW" -> event.setState(State.CANCELED);
+                    case "SEND_TO_REVIEW" -> event.setState(State.PENDING);
+                }
+            }
+
+            patchFieldValidation(event, patchEventDto);
+            return eventRepository.save(event);
+        });
+
+        UserShortDto initiator = getUserShortDto(updatedEvent.getInitiatorId());
+        EventFullDto dto = eventMapper.toFullDto(updatedEvent, initiator);
+        if (updatedEvent.getPublishedOn() != null) {
+            dto.setViews(getStats(updatedEvent));
+        }
         return dto;
     }
 
@@ -346,7 +353,7 @@ public class EventServiceImpl implements EventService {
         try {
             statsClient.saveHit(new EndpointHitDto(
                     null,
-                    "main-service",
+                    "event-service",
                     request.getRequestURI(),
                     request.getRemoteAddr(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
