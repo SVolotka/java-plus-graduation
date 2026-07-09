@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS events (
     category_id BIGINT NOT NULL,
     created_on TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     initiator_id BIGINT NOT NULL,
-    location_id BIGINT NOT NULL,
     lat REAL NOT NULL,
     lon REAL NOT NULL,
     event_date TIMESTAMP WITHOUT TIME ZONE NOT NULL,
