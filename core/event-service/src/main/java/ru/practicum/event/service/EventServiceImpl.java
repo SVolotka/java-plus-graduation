@@ -203,10 +203,9 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public EventFullDto patchEvent(Long id, PatchEventDto patchEventDto) {
-        // Предварительная проверка (stateAction) без транзакции
         if (patchEventDto.getStateAction() != null) {
             switch (patchEventDto.getStateAction()) {
-                case "PUBLISH_EVENT", "REJECT_EVENT" -> {} // ok
+                case "PUBLISH_EVENT", "REJECT_EVENT" -> {}
                 default -> throw new ValidationException("Недопустимое действие: " + patchEventDto.getStateAction());
             }
         }
@@ -214,6 +213,7 @@ public class EventServiceImpl implements EventService {
         Event updatedEvent = transactionTemplate.execute(status -> {
             Event event = eventRepository.findById(id)
                     .orElseThrow(() -> new NotFoundException("Событие с id = " + id + " отсутствует."));
+
             if (event.getState() != State.PENDING) {
                 throw new ConflictException("Событие можно публиковать только в состоянии ожидания.");
             }
@@ -223,6 +223,12 @@ public class EventServiceImpl implements EventService {
                     case "PUBLISH_EVENT" -> {
                         event.setState(State.PUBLISHED);
                         event.setPublishedOn(LocalDateTime.now());
+
+                        if (event.getEventDate().plusHours(1).isBefore(event.getPublishedOn())) {
+                            throw new ConflictException(
+                                    "Дата начала должна быть не ранее чем за час от публикации."
+                            );
+                        }
                     }
                     case "REJECT_EVENT" -> event.setState(State.CANCELED);
                 }
@@ -236,11 +242,10 @@ public class EventServiceImpl implements EventService {
         EventFullDto dto = eventMapper.toFullDto(updatedEvent, initiator);
         if (updatedEvent.getPublishedOn() != null) {
             dto.setViews(getStats(updatedEvent));
-            if (updatedEvent.getEventDate().plusHours(1).isBefore(updatedEvent.getPublishedOn())) {
-                throw new ConflictException("Дата начала должна быть не ранее чем за час от публикации.");
-            }
         }
-        dto.setConfirmedRequests(requestClient.getConfirmedRequestsForEvents(List.of(id)).getOrDefault(id, 0L));
+        dto.setConfirmedRequests(
+                requestClient.getConfirmedRequestsForEvents(List.of(id)).getOrDefault(id, 0L)
+        );
         return dto;
     }
 
@@ -273,6 +278,11 @@ public class EventServiceImpl implements EventService {
             dto.setViews(getStats(updatedEvent));
         }
         return dto;
+    }
+
+    @Override
+    public boolean existsById(Long id) {
+        return eventRepository.existsById(id);
     }
 
     private void checkUserExists(Long userId) {

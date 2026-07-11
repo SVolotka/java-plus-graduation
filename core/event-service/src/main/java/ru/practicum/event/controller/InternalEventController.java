@@ -19,4 +19,9 @@ public class InternalEventController {
     public EventFullDto getEventById(@PathVariable Long id) {
         return eventService.findEventByIdInternal(id);
     }
+
+    @GetMapping("/{id}/exists")
+    public boolean existsById(@PathVariable Long id) {
+        return eventService.existsById(id);
+    }
 }

@@ -18,4 +18,6 @@ public interface UserAdminService {
     void deleteUser(Long id);
 
     List<User> getUsersByIds(List<Long> ids);
+
+    boolean existsById(Long id);
 }

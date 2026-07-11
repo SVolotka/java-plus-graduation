@@ -29,4 +29,6 @@ public interface EventService {
     EventFullDto saveNewEvent(Long userId, NewEventDto newEventDto);
 
     EventFullDto findEventByIdInternal(Long id);
+
+    boolean existsById(Long id);
 }

@@ -1,6 +1,5 @@
 package ru.yandex.practicum.core.commentService.service;
 
-import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -50,32 +49,15 @@ public class CommentServiceImpl implements CommentService {
     private final EventClient eventClient;
     private final TransactionTemplate transactionTemplate;
 
-    private UserDto getUserById(Long userId) {
-        try {
-            return userClient.getById(userId);
-        } catch (FeignException.NotFound e) {
-            throw new NotFoundException("Пользователь с id = " + userId + " не найден");
-        } catch (FeignException e) {
-            log.error("Ошибка при запросе пользователя {}: {}", userId, e.getMessage());
-            throw new RuntimeException("Сервис пользователей недоступен", e);
-        }
-    }
-
-    private EventFullDto getEventById(Long eventId) {
-        try {
-            return eventClient.getEventById(eventId);
-        } catch (FeignException.NotFound e) {
-            throw new NotFoundException("Событие с id = " + eventId + " не найдено");
-        } catch (FeignException e) {
-            log.error("Ошибка при запросе события {}: {}", eventId, e.getMessage());
-            throw new RuntimeException("Сервис событий недоступен", e);
-        }
-    }
-
     @Override
     public CommentDto create(CommentRequestDto commentRequestDto, Long commentatorId, Long eventId) {
-        UserDto userDto = getUserById(commentatorId);
-        EventFullDto event = getEventById(eventId);
+        if (!userClient.existsById(commentatorId)) {
+            throw new NotFoundException("Пользователь с id = " + commentatorId + " не найден");
+        }
+
+        if (!eventClient.existsById(eventId)) {
+            throw new NotFoundException("Событие с id = " + eventId + " не найдено");
+        }
 
         Comment comment = transactionTemplate.execute(status -> {
             Comment commentCreate = Comment.builder()
@@ -108,7 +90,12 @@ public class CommentServiceImpl implements CommentService {
         if (!eventId.equals(comment.getEventId())) {
             throw new ConflictException("Комментарий не относится к событию");
         }
-        EventFullDto event = getEventById(eventId);
+
+        EventFullDto event = eventClient.getEventById(eventId);
+        if (event == null) {
+            throw new NotFoundException("Событие с id = " + eventId + " не найдено");
+        }
+
         boolean isAuthor = comment.getCommentatorId().equals(userId);
         boolean isEventInitiator = event.getInitiator().getId().equals(userId);
         if (!isAuthor && !isEventInitiator) {
@@ -127,7 +114,10 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public Page<CommentResponseDto> getCommentsByEvent(Long eventId, String sortOrder, int from, int size) {
-        getEventById(eventId); // проверка существования события
+        if (!eventClient.existsById(eventId)) {
+            throw new NotFoundException("Событие с id = " + eventId + " не найдено");
+        }
+
         Sort sort = Sort.by("created");
         if ("desc".equalsIgnoreCase(sortOrder)) {
             sort = sort.descending();
@@ -141,9 +131,14 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public ReactionResponseDto addVote(Long evaluatorId, Long commentId, String voteType) {
-        UserDto evaluator = getUserById(evaluatorId);
+        UserDto evaluator = userClient.getById(evaluatorId);
+        if (evaluator == null) {
+            throw new NotFoundException("Пользователь с id = " + evaluatorId + " не найден");
+        }
+
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new NotFoundException("Комментарий с id = " + commentId + " не найден"));
+
         Reaction reaction = transactionTemplate.execute(status -> {
             Optional<Reaction> reactionOpt = reactionRepository.existByUserAndComment(evaluatorId, commentId);
             if (reactionOpt.isPresent()) {
@@ -162,6 +157,7 @@ public class CommentServiceImpl implements CommentService {
                 return reactionRepository.save(newReaction);
             }
         });
+
         CommentResponseDto commentResponseDto = commentMapper.toCommentResponseDto(comment);
         return reactionMapper.toReactionResponseDto(reaction, evaluator, commentResponseDto);
     }
@@ -176,8 +172,11 @@ public class CommentServiceImpl implements CommentService {
         for (Object[] row : results) {
             String vt = (String) row[0];
             Long cnt = (Long) row[1];
-            if (vt.equals(CommentsSortType.LIKE.name())) likes = cnt;
-            else if (vt.equals(CommentsSortType.DISLIKE.name())) dislikes = cnt;
+            if (vt.equals(CommentsSortType.LIKE.name())) {
+                likes = cnt;
+            } else if (vt.equals(CommentsSortType.DISLIKE.name())) {
+                dislikes = cnt;
+            }
         }
         return new CommentStatsResponse(commentId, likes, dislikes);
     }
@@ -192,7 +191,9 @@ public class CommentServiceImpl implements CommentService {
         }
         int start = Math.min(from, commentIds.size());
         int end = Math.min(from + size, commentIds.size());
-        if (start >= end) return List.of();
+        if (start >= end) {
+            return List.of();
+        }
         List<Long> pageIds = commentIds.subList(start, end);
         List<Comment> comments = commentRepository.findAllById(pageIds);
         Map<Long, Comment> commentMap = comments.stream()

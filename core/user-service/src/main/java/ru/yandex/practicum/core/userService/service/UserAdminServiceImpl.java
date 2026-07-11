@@ -88,6 +88,11 @@ public class UserAdminServiceImpl implements UserAdminService {
         return userRepository.findAllById(ids);
     }
 
+    @Override
+    public boolean existsById(Long id) {
+        return userRepository.existsById(id);
+    }
+
     private void validateUserFields(UserRequestDto userRequestDto) {
         log.debug("Валидация полей пользователя: {}", userRequestDto);
 
