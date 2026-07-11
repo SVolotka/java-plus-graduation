@@ -1,5 +1,6 @@
 package ru.yandex.practicum.common.feignClient.fallback;
 
+import org.springframework.stereotype.Component;
 import ru.yandex.practicum.common.feignClient.RequestClient;
 import ru.yandex.practicum.common.requestService.dto.EventRequestStatusUpdateRequest;
 import ru.yandex.practicum.common.requestService.dto.EventRequestStatusUpdateResult;
@@ -9,6 +10,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+@Component
 public class RequestClientFallback implements RequestClient {
     @Override
     public Map<Long, Long> getConfirmedRequestsForEvents(List<Long> eventIds) {
