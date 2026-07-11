@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = "ru.yandex.practicum")
 @EnableDiscoveryClient
 @EnableFeignClients(basePackages = "ru.yandex.practicum.common.feignClient")
 public class RequestServiceApplication {
