@@ -6,13 +6,16 @@ import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
 
-@Data
 @Entity
 @Builder
 @Table(name = "statistics")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @AllArgsConstructor
 @NoArgsConstructor
+@Getter
+@Setter
+@ToString
+@EqualsAndHashCode(of = "id")
 public class EndpointHit {
 
     @Id
