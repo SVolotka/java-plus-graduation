@@ -1,20 +1,21 @@
 services:
+  discovery-server:
+    build: infra/discovery-server
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    restart: on-failure
+
   config-server:
     build: infra/config-server
     container_name: config-server
     ports:
       - "8888:8888"
     depends_on:
-      - discovery-server
+      discovery-server:
+        condition: service_started
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
-    restart: on-failure
-
-  discovery-server:
-    build: infra/discovery-server
-    container_name: discovery-server
-    ports:
-      - "8761:8761"
     restart: on-failure
 
   gateway-server:
@@ -23,8 +24,10 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - config-server
-      - discovery-server
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
     environment:
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
@@ -59,7 +62,8 @@ services:
   kafka-init:
     image: apache/kafka:3.7.1
     depends_on:
-      kafka: {condition: service_healthy}
+      kafka:
+        condition: service_healthy
     restart: "no"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -95,7 +99,7 @@ services:
       POSTGRES_USER: main
       POSTGRES_DB: main
     healthcheck:
-      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      test: ["CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER"]
       timeout: 5s
       interval: 5s
       retries: 10
@@ -110,7 +114,7 @@ services:
       POSTGRES_USER: request_service
       POSTGRES_DB: request_service
     healthcheck:
-      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      test: ["CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER"]
       timeout: 5s
       interval: 5s
       retries: 10
@@ -125,7 +129,7 @@ services:
       POSTGRES_USER: user_service
       POSTGRES_DB: user_service
     healthcheck:
-      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      test: ["CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER"]
       timeout: 5s
       interval: 5s
       retries: 10
@@ -140,7 +144,7 @@ services:
       POSTGRES_USER: comment_service
       POSTGRES_DB: comment_service
     healthcheck:
-      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      test: ["CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER"]
       timeout: 5s
       interval: 5s
       retries: 10
@@ -155,7 +159,7 @@ services:
       POSTGRES_USER: analyzer
       POSTGRES_DB: analyzer
     healthcheck:
-      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      test: ["CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER"]
       timeout: 5s
       interval: 5s
       retries: 10
@@ -164,10 +168,14 @@ services:
     build: stats-service/collector
     container_name: collector
     depends_on:
-      - kafka
-      - kafka-init
-      - config-server
-      - discovery-server
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
     environment:
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
@@ -179,10 +187,14 @@ services:
     build: stats-service/aggregator
     container_name: aggregator
     depends_on:
-      - kafka
-      - kafka-init
-      - config-server
-      - discovery-server
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
     environment:
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
@@ -194,11 +206,16 @@ services:
     build: stats-service/analyzer
     container_name: analyzer
     depends_on:
-      - analyzer-db
-      - kafka
-      - kafka-init
-      - config-server
-      - discovery-server
+      analyzer-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
     environment:
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
@@ -213,9 +230,12 @@ services:
     build: core/event-service
     container_name: event-service
     depends_on:
-      - main-db
-      - config-server
-      - discovery-server
+      main-db:
+        condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
     environment:
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
@@ -228,9 +248,12 @@ services:
     build: core/user-service
     container_name: user-service
     depends_on:
-      - user-db
-      - config-server
-      - discovery-server
+      user-db:
+        condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
     environment:
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
@@ -243,9 +266,12 @@ services:
     build: core/request-service
     container_name: request-service
     depends_on:
-      - request-db
-      - config-server
-      - discovery-server
+      request-db:
+        condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
     environment:
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
@@ -258,9 +284,12 @@ services:
     build: core/comment-service
     container_name: comment-service
     depends_on:
-      - comment-db
-      - config-server
-      - discovery-server
+      comment-db:
+        condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
     environment:
       SPRING_CLOUD_CONFIG_URI: http://config-server:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
