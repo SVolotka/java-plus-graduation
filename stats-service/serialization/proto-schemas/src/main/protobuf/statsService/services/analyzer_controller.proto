@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package stats.service.dashboard;
+
+import "statsService/messages/recommendations.proto";
+
+option java_package = "ru.yandex.practicum.grpc.stats.dashboard";
+
+service RecommendationsController {
+  rpc GetRecommendationsForUser (UserPredictionsRequestProto) returns (stream RecommendedEventProto);
+  rpc GetSimilarEvents (SimilarEventsRequestProto) returns (stream RecommendedEventProto);
+  rpc GetInteractionsCount (InteractionsCountRequestProto) returns (stream RecommendedEventProto);
+}

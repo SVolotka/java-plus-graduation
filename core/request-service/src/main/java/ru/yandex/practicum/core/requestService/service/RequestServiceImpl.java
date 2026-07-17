@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import ru.practicum.statsclient.CollectorGrpcClient;
 import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
 import ru.yandex.practicum.common.eventService.event.enums.State;
 import ru.yandex.practicum.common.exception.ConflictException;
@@ -19,6 +20,7 @@ import ru.yandex.practicum.common.userService.dto.UserDto;
 import ru.yandex.practicum.core.requestService.entity.ParticipationRequest;
 import ru.yandex.practicum.core.requestService.mapper.RequestMapper;
 import ru.yandex.practicum.core.requestService.repository.RequestRepository;
+import ru.yandex.practicum.grpc.stats.collector.ActionTypeProto;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,6 +38,7 @@ public class RequestServiceImpl implements RequestService {
     private final UserClient userClient;
     private final EventClient eventClient;
     private final TransactionTemplate transactionTemplate;
+    private final CollectorGrpcClient collectorClient;
 
     @Override
     public List<ParticipationRequestDto> getUserRequests(Long userId) {
@@ -108,6 +111,9 @@ public class RequestServiceImpl implements RequestService {
 
         ParticipationRequest request = transactionTemplate.execute(statusTx ->
                 saveNewRequest(userId, eventId, status));
+
+        collectorClient.sendUserAction(userId, eventId, ActionTypeProto.ACTION_REGISTER);
+
         return requestMapper.toDto(request);
     }
 
