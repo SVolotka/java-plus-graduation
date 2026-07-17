@@ -10,7 +10,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import ru.practicum.ewm.stats.avro.EventSimilarityAvro;
 import ru.practicum.ewm.stats.avro.UserActionAvro;
-import ru.yandex.practicum.kafka.deserializer.ConfluentEventSimilarityAvroDeserializer;
+import ru.yandex.practicum.kafka.deserializer.EventSimilarityAvroDeserializer;
 import ru.yandex.practicum.kafka.deserializer.UserActionAvroDeserializer;
 
 import java.util.HashMap;
@@ -44,7 +44,7 @@ public class KafkaConfig {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, LongDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ConfluentEventSimilarityAvroDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, EventSimilarityAvroDeserializer.class);  // ← простой
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "analyzer-similarities");
         return new DefaultKafkaConsumerFactory<>(props);
     }

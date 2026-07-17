@@ -13,7 +13,7 @@ import org.springframework.kafka.listener.ContainerProperties;
 import ru.practicum.ewm.stats.avro.EventSimilarityAvro;
 import ru.practicum.ewm.stats.avro.UserActionAvro;
 import ru.yandex.practicum.kafka.deserializer.UserActionAvroDeserializer;
-import ru.yandex.practicum.kafka.serializer.ConfluentAvroSerializer;
+import ru.yandex.practicum.kafka.serializer.GeneralAvroSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -47,7 +47,7 @@ public class KafkaConfig {
         Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ConfluentAvroSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, GeneralAvroSerializer.class);
         return new DefaultKafkaProducerFactory<>(props);
     }
 
