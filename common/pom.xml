@@ -29,6 +29,10 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.github.openfeign</groupId>
+            <artifactId>feign-okhttp</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -39,5 +43,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

@@ -21,4 +21,9 @@ public class InternalRequestController {
     public Map<Long, Long> getConfirmedRequestsForEvents(@RequestParam("eventIds") List<Long> eventIds) {
         return requestService.getConfirmedRequestsForEvents(eventIds);
     }
+
+    @GetMapping("/is-confirmed")
+    public boolean isUserConfirmed(@RequestParam Long userId, @RequestParam Long eventId) {
+        return requestService.isUserConfirmedForEvent(userId, eventId);
+    }
 }

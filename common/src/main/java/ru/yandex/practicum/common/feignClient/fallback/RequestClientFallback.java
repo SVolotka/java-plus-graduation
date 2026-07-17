@@ -29,4 +29,9 @@ public class RequestClientFallback implements RequestClient {
                 .rejectedRequests(Collections.emptyList())
                 .build();
     }
+
+    @Override
+    public boolean isUserConfirmed(Long userId, Long eventId) {
+        return false;  // fallback безопасно возвращает false
+    }
 }

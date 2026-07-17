@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
-@SpringBootApplication(scanBasePackages = {"ru.practicum", "ru.yandex.practicum"})
+@SpringBootApplication(scanBasePackages = {"ru.practicum", "ru.yandex.practicum.common", "ru.practicum.statsclient"})
 @EnableDiscoveryClient
 @EnableFeignClients(basePackages = "ru.yandex.practicum.common.feignClient")
 public class EventServiceApplication {

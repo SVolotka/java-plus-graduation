@@ -2,7 +2,6 @@ package ru.practicum.event.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +16,7 @@ import ru.yandex.practicum.common.feignClient.RequestClient;
 import ru.yandex.practicum.common.requestService.dto.EventRequestStatusUpdateRequest;
 import ru.yandex.practicum.common.requestService.dto.EventRequestStatusUpdateResult;
 import ru.yandex.practicum.common.requestService.dto.ParticipationRequestDto;
+import ru.yandex.practicum.common.exception.ValidationException;
 
 import java.util.List;
 
@@ -47,7 +47,7 @@ public class PrivateEventController {
     @PostMapping
     public ResponseEntity<EventFullDto> saveNewEvent(
             @PathVariable("userId") @Min(1) Long id,
-            @Valid @RequestBody @NotNull NewEventDto newEventDto) {
+            @Valid @RequestBody NewEventDto newEventDto) {
         EventFullDto eventFullDto = eventService.saveNewEvent(id, newEventDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(eventFullDto);
     }
@@ -56,7 +56,7 @@ public class PrivateEventController {
     public ResponseEntity<EventFullDto> patchEventByInitiator(
             @PathVariable @Min(1) Long userId,
             @PathVariable @Min(1) Long eventId,
-            @Valid @RequestBody @NotNull PatchEventDto patchEventDto) {
+            @Valid @RequestBody PatchEventDto patchEventDto) {
         return ResponseEntity.ok(eventService.patchEventByUser(userId, eventId, patchEventDto));
     }
 
@@ -71,7 +71,10 @@ public class PrivateEventController {
     public ResponseEntity<EventRequestStatusUpdateResult> patchStatusOfRequest(
             @PathVariable @Min(1) Long userId,
             @PathVariable @Min(1) Long eventId,
-            @RequestBody @NotNull EventRequestStatusUpdateRequest eventRequestStatusUpdateRequest) {
-        return ResponseEntity.ok(requestClient.changeRequestStatus(userId, eventId, eventRequestStatusUpdateRequest));
+            @RequestBody(required = false) @Valid EventRequestStatusUpdateRequest request) {
+        if (request == null) {
+            throw new ValidationException("Тело запроса не может быть пустым");
+        }
+        return ResponseEntity.ok(requestClient.changeRequestStatus(userId, eventId, request));
     }
 }

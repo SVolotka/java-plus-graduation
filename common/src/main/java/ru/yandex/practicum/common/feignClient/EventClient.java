@@ -4,9 +4,8 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
-import ru.yandex.practicum.common.feignClient.fallback.EventClientFallback;
 
-@FeignClient(name = "event-service", fallback = EventClientFallback.class)
+@FeignClient(name = "event-service")
 public interface EventClient {
 
     @GetMapping("/internal/events/{id}")

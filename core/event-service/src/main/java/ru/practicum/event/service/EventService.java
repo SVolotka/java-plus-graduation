@@ -1,6 +1,5 @@
 package ru.practicum.event.service;
 
-import jakarta.servlet.http.HttpServletRequest;
 import ru.practicum.event.dto.NewEventDto;
 import ru.practicum.event.entityparam.AdminEventParam;
 import ru.practicum.event.entityparam.PublicEventParam;
@@ -12,23 +11,25 @@ import java.util.List;
 
 public interface EventService {
 
-    List<EventShortDto> findEventsBy(PublicEventParam param, HttpServletRequest httpServletRequest);
+    List<EventShortDto> findEventsBy(PublicEventParam param);
+
+    EventFullDto findEventById(Long id);
 
     List<EventFullDto> findEventsBy(AdminEventParam param);
 
-    List<EventShortDto> findEventsBy(Long id, Integer from, Integer size);
+    List<EventShortDto> findEventsBy(Long userId, Integer from, Integer size);
 
-    EventFullDto findEventById(Long id, HttpServletRequest httpServletRequest);
+    EventFullDto findEventByIdAndUser(Long userId, Long eventId);
+
+    EventFullDto findEventByIdInternal(Long id);
+
+    EventFullDto saveNewEvent(Long userId, NewEventDto newEventDto);
 
     EventFullDto patchEvent(Long id, PatchEventDto patchEventDto);
 
     EventFullDto patchEventByUser(Long userId, Long eventId, PatchEventDto patchEventDto);
 
-    EventFullDto findEventByIdAndUser(Long userId, Long eventId);
-
-    EventFullDto saveNewEvent(Long userId, NewEventDto newEventDto);
-
-    EventFullDto findEventByIdInternal(Long id);
-
     boolean existsById(Long id);
+
+    EventShortDto getEventShortDto(Long eventId, Double rating);
 }

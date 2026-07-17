@@ -20,4 +20,6 @@ public interface RequestService {
     EventRequestStatusUpdateResult changeRequestStatus(Long userId, Long eventId, EventRequestStatusUpdateRequest request);
 
     Map<Long, Long> getConfirmedRequestsForEvents(List<Long> eventIds);
+
+    boolean isUserConfirmedForEvent(Long userId, Long eventId);
 }
