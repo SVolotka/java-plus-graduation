@@ -23,7 +23,6 @@ import ru.practicum.event.specification.AdminEventSpecification;
 import ru.practicum.event.specification.EventSpecification;
 import ru.practicum.event.specification.PublicEventSpecification;
 import ru.practicum.statsclient.AnalyzerGrpcClient;
-import ru.practicum.statsclient.CollectorGrpcClient;
 import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
 import ru.yandex.practicum.common.eventService.event.dto.EventShortDto;
 import ru.yandex.practicum.common.exception.ConflictException;
@@ -315,21 +314,31 @@ public class EventServiceImpl implements EventService {
     }
 
     private Map<Long, Double> getRatings(List<Event> events) {
-        if (events.isEmpty()) return Collections.emptyMap();
+        if (events == null || events.isEmpty()) return Collections.emptyMap();
         List<Long> ids = events.stream().map(Event::getId).toList();
-        return analyzerClient.getInteractionsCount(ids)
-                .collect(Collectors.toMap(
-                        RecommendedEventProto::getEventId,
-                        RecommendedEventProto::getScore,
-                        (a, b) -> a
-                ));
+        try {
+            return analyzerClient.getInteractionsCount(ids)
+                    .collect(Collectors.toMap(
+                            RecommendedEventProto::getEventId,
+                            RecommendedEventProto::getScore,
+                            (a, b) -> a
+                    ));
+        } catch (Exception e) {
+            log.warn("Не удалось получить рейтинги из analyzer (возможно, gRPC недоступен): {}", e.getMessage());
+            return Collections.emptyMap();
+        }
     }
 
     private Double getRatingForEvent(Long eventId) {
-        return analyzerClient.getInteractionsCount(List.of(eventId))
-                .findFirst()
-                .map(RecommendedEventProto::getScore)
-                .orElse(0.0);
+        try {
+            return analyzerClient.getInteractionsCount(List.of(eventId))
+                    .findFirst()
+                    .map(RecommendedEventProto::getScore)
+                    .orElse(0.0);
+        } catch (Exception e) {
+            log.warn("Не удалось получить рейтинг для события {} из analyzer: {}", eventId, e.getMessage());
+            return 0.0;
+        }
     }
 
     private Map<Long, Long> getRequestsForEvents(List<Event> events) {

@@ -112,7 +112,11 @@ public class RequestServiceImpl implements RequestService {
         ParticipationRequest request = transactionTemplate.execute(statusTx ->
                 saveNewRequest(userId, eventId, status));
 
-        collectorClient.sendUserAction(userId, eventId, ActionTypeProto.ACTION_REGISTER);
+        try {
+            collectorClient.sendUserAction(userId, eventId, ActionTypeProto.ACTION_REGISTER);
+        } catch (Exception e) {
+            log.warn("Не удалось отправить действие в collector (возможно, gRPC недоступен): {}", e.getMessage());
+        }
 
         return requestMapper.toDto(request);
     }
