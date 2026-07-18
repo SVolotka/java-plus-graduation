@@ -15,4 +15,7 @@ public interface InteractionRepository extends JpaRepository<Interaction, Long> 
     List<Long> findEventIdsByUserId(@Param("userId") Long userId);
 
     Optional<Interaction> findByUserIdAndEventId(long userId, long eventId);
+
+    @Query("SELECT COALESCE(SUM(i.weight), 0.0) FROM Interaction i WHERE i.eventId = :eventId")
+    Double sumWeightByEventId(@Param("eventId") Long eventId);
 }

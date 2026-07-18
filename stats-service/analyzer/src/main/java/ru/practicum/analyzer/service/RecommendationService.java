@@ -77,10 +77,7 @@ public class RecommendationService {
     public List<RecommendedEventProto> getInteractionsCount(List<Long> eventIds) {
         return eventIds.stream()
                 .map(eventId -> {
-                    double sumWeight = interactionRepository.findAll().stream()
-                            .filter(i -> i.getEventId().equals(eventId))
-                            .mapToDouble(Interaction::getWeight)
-                            .sum();
+                    double sumWeight = interactionRepository.sumWeightByEventId(eventId);
                     return RecommendedEventProto.newBuilder()
                             .setEventId(eventId)
                             .setScore(sumWeight)

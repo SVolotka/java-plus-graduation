@@ -2,6 +2,7 @@ package ru.practicum.event.controller;
 
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -17,12 +18,14 @@ import ru.yandex.practicum.common.requestService.dto.ParticipationRequestDto;
 import ru.yandex.practicum.grpc.stats.collector.ActionTypeProto;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Validated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/events")
+@Slf4j
 public class PublicEventController {
 
     private final EventService eventService;
@@ -50,7 +53,13 @@ public class PublicEventController {
             @PathVariable @Min(1) Long id,
             @RequestHeader(value = "X-EWM-USER-ID", required = false) Long userId) {
         if (userId != null) {
-            collectorClient.sendUserAction(userId, id, ActionTypeProto.ACTION_VIEW);
+            CompletableFuture.runAsync(() -> {
+                try {
+                    collectorClient.sendUserAction(userId, id, ActionTypeProto.ACTION_VIEW);
+                } catch (Exception e) {
+                    log.warn("Не удалось отправить метрику VIEW в collector: {}", e.getMessage());
+                }
+            });
         }
         return ResponseEntity.ok(eventService.findEventById(id));
     }
