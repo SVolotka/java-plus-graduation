@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -112,11 +113,14 @@ public class RequestServiceImpl implements RequestService {
         ParticipationRequest request = transactionTemplate.execute(statusTx ->
                 saveNewRequest(userId, eventId, status));
 
-//        try {
-//            collectorClient.sendUserAction(userId, eventId, ActionTypeProto.ACTION_REGISTER);
-//        } catch (Exception e) {
-//            log.warn("Не удалось отправить действие в collector (возможно, gRPC недоступен): {}", e.getMessage());
-//        }
+        // Асинхронный вызов, чтобы не блокировать HTTP-поток
+        CompletableFuture.runAsync(() -> {
+            try {
+                collectorClient.sendUserAction(userId, eventId, ActionTypeProto.ACTION_REGISTER);
+            } catch (Exception e) {
+                log.warn("Не удалось отправить метрику в collector: {}", e.getMessage());
+            }
+        });
 
         return requestMapper.toDto(request);
     }
