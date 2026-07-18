@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -197,6 +198,18 @@ public class ErrorHandler {
         return ApiError.builder()
                 .status("INTERNAL_SERVER_ERROR")
                 .reason("Unexpected error")
+                .message(e.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiError handleMissingServletRequestParameter(MissingServletRequestParameterException e) {
+        log.error("Missing parameter: {}", e.getMessage());
+        return ApiError.builder()
+                .status("BAD_REQUEST")
+                .reason("Incorrectly made request.")
                 .message(e.getMessage())
                 .timestamp(LocalDateTime.now())
                 .build();

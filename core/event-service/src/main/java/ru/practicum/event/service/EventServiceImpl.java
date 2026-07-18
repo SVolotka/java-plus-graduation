@@ -52,7 +52,6 @@ public class EventServiceImpl implements EventService {
     private final UserClient userClient;
     private final RequestClient requestClient;
     private final TransactionTemplate transactionTemplate;
-    private final CollectorGrpcClient collectorClient;
     private final AnalyzerGrpcClient analyzerClient;
 
     @Override
@@ -68,9 +67,12 @@ public class EventServiceImpl implements EventService {
                 .rangeEnd(param.getRangeEnd())
                 .build();
 
-        Pageable pageable = PageRequest.of(param.getFrom(), param.getSize());
+        int pageNumber = param.getFrom() / param.getSize();
+        Pageable pageable;
         if (SortType.EVENT_DATE.name().equalsIgnoreCase(param.getSort())) {
-            pageable = PageRequest.of(param.getFrom(), param.getSize(), Sort.by(Sort.Direction.DESC, "eventDate"));
+            pageable = PageRequest.of(pageNumber, param.getSize(), Sort.by(Sort.Direction.DESC, "eventDate"));
+        } else {
+            pageable = PageRequest.of(pageNumber, param.getSize());
         }
 
         Page<Event> eventPage = eventRepository.findAll(specification.toSpecification(), pageable);
@@ -124,7 +126,9 @@ public class EventServiceImpl implements EventService {
                 .rangeEnd(param.getRangeEnd())
                 .build();
 
-        Pageable pageable = PageRequest.of(param.getFrom(), param.getSize());
+        int pageNumber = param.getFrom() / param.getSize();
+        Pageable pageable = PageRequest.of(pageNumber, param.getSize());
+
         List<Event> events = eventRepository.findAll(specification.toSpecification(), pageable).getContent();
 
         Map<Long, Double> ratingsForEvents = getRatings(events);
@@ -157,7 +161,7 @@ public class EventServiceImpl implements EventService {
                         event.setState(State.PUBLISHED);
                         event.setPublishedOn(LocalDateTime.now());
 
-                        if (event.getEventDate().plusHours(1).isBefore(event.getPublishedOn())) {
+                        if (event.getEventDate().isBefore(event.getPublishedOn().plusHours(1))) {
                             throw new ConflictException(
                                     "Дата начала должна быть не ранее чем за час от публикации."
                             );
@@ -183,7 +187,10 @@ public class EventServiceImpl implements EventService {
     @Override
     public List<EventShortDto> findEventsBy(Long userId, Integer from, Integer size) {
         checkUserExists(userId);
-        Pageable pageable = PageRequest.of(from, size);
+
+        int pageNumber = from / size;
+        Pageable pageable = PageRequest.of(pageNumber, size);
+
         Page<Event> eventPage = eventRepository.findAllByInitiatorId(userId, pageable);
         List<Event> events = eventPage.getContent();
 
