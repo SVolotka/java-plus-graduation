@@ -15,17 +15,25 @@ public class CollectorGrpcClient {
     @GrpcClient("collector")
     private UserActionControllerGrpc.UserActionControllerBlockingStub collectorStub;
 
-    public void sendUserAction(long userId, long eventId, ActionTypeProto actionType) {
-        Timestamp timestamp = Timestamp.newBuilder()
-                .setSeconds(Instant.now().getEpochSecond())
-                .setNanos(Instant.now().getNano())
+    public void sendUserAction(long userId, long eventId, ActionType actionType, Instant timestamp) {
+        ActionTypeProto protoType = switch (actionType) {
+            case VIEW -> ActionTypeProto.ACTION_VIEW;
+            case REGISTER -> ActionTypeProto.ACTION_REGISTER;
+            case LIKE -> ActionTypeProto.ACTION_LIKE;
+        };
+
+        Timestamp protoTimestamp = Timestamp.newBuilder()
+                .setSeconds(timestamp.getEpochSecond())
+                .setNanos(timestamp.getNano())
                 .build();
+
         UserActionProto request = UserActionProto.newBuilder()
                 .setUserId(userId)
                 .setEventId(eventId)
-                .setActionType(actionType)
-                .setTimestamp(timestamp)
+                .setActionType(protoType)
+                .setTimestamp(protoTimestamp)
                 .build();
+
         collectorStub.collectUserAction(request);
     }
 }

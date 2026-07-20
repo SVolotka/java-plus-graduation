@@ -7,6 +7,7 @@ import ru.yandex.practicum.grpc.stats.dashboard.InteractionsCountRequestProto;
 import ru.yandex.practicum.grpc.stats.dashboard.RecommendationsControllerGrpc;
 import ru.yandex.practicum.grpc.stats.dashboard.RecommendedEventProto;
 import ru.yandex.practicum.grpc.stats.dashboard.SimilarEventsRequestProto;
+import ru.yandex.practicum.grpc.stats.dashboard.UserInteractionCheckRequest;
 import ru.yandex.practicum.grpc.stats.dashboard.UserPredictionsRequestProto;
 
 import java.util.Iterator;
@@ -53,6 +54,17 @@ public class AnalyzerGrpcClient {
                 .withDeadline(Deadline.after(4, TimeUnit.SECONDS))
                 .getInteractionsCount(request);
         return toStream(iterator);
+    }
+
+    public boolean hasUserInteraction(long userId, long eventId) {
+        UserInteractionCheckRequest request = UserInteractionCheckRequest.newBuilder()
+                .setUserId(userId)
+                .setEventId(eventId)
+                .build();
+        return analyzerStub
+                .withDeadline(Deadline.after(4, TimeUnit.SECONDS))
+                .checkUserInteraction(request)
+                .getHasInteraction();
     }
 
     private Stream<RecommendedEventProto> toStream(Iterator<RecommendedEventProto> iterator) {

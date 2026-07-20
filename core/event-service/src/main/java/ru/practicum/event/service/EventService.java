@@ -32,4 +32,6 @@ public interface EventService {
     boolean existsById(Long id);
 
     EventShortDto getEventShortDto(Long eventId, Double rating);
+
+    void likeEvent(long eventId, long userId);
 }

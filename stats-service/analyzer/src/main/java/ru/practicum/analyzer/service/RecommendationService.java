@@ -33,25 +33,31 @@ public class RecommendationService {
                 .map(Interaction::getEventId)
                 .toList();
 
-        Map<Long, Double> candidateScores = new HashMap<>();
+        Map<Long, Double> candidateMaxSimilarity = new HashMap<>();
         for (Interaction interaction : recentInteractions.stream().limit(MAX_NEIGHBORS).toList()) {
             List<Similarity> similarities = similarityRepository.findByEventId(interaction.getEventId());
             for (Similarity sim : similarities) {
                 long candidate = sim.getEvent1().equals(interaction.getEventId()) ? sim.getEvent2() : sim.getEvent1();
                 if (!interactedEventIds.contains(candidate)) {
-                    double predictedRating = predictRating(userId, candidate);
-                    candidateScores.put(candidate, predictedRating);
+                    candidateMaxSimilarity.merge(candidate, (double) sim.getSimilarity(), Math::max);
                 }
             }
         }
 
-        return candidateScores.entrySet().stream()
+        List<Long> topCandidates = candidateMaxSimilarity.entrySet().stream()
                 .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
                 .limit(maxResults)
-                .map(e -> RecommendedEventProto.newBuilder()
-                        .setEventId(e.getKey())
-                        .setScore(e.getValue())
-                        .build())
+                .map(Map.Entry::getKey)
+                .toList();
+
+        return topCandidates.stream()
+                .map(candidate -> {
+                    double predictedRating = predictRating(userId, candidate);
+                    return RecommendedEventProto.newBuilder()
+                            .setEventId(candidate)
+                            .setScore(predictedRating)
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 
@@ -84,6 +90,10 @@ public class RecommendationService {
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    public boolean hasUserInteraction(long userId, long eventId) {
+        return interactionRepository.findByUserIdAndEventId(userId, eventId).isPresent();
     }
 
     private double predictRating(long userId, long eventId) {

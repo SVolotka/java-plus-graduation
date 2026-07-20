@@ -8,6 +8,8 @@ import ru.yandex.practicum.grpc.stats.dashboard.InteractionsCountRequestProto;
 import ru.yandex.practicum.grpc.stats.dashboard.RecommendationsControllerGrpc;
 import ru.yandex.practicum.grpc.stats.dashboard.RecommendedEventProto;
 import ru.yandex.practicum.grpc.stats.dashboard.SimilarEventsRequestProto;
+import ru.yandex.practicum.grpc.stats.dashboard.UserInteractionCheckRequest;
+import ru.yandex.practicum.grpc.stats.dashboard.UserInteractionCheckResponse;
 import ru.yandex.practicum.grpc.stats.dashboard.UserPredictionsRequestProto;
 
 @GrpcService
@@ -37,6 +39,16 @@ public class RecommendationsControllerImpl extends RecommendationsControllerGrpc
                                      StreamObserver<RecommendedEventProto> responseObserver) {
         recommendationService.getInteractionsCount(request.getEventIdList())
                 .forEach(responseObserver::onNext);
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void checkUserInteraction(UserInteractionCheckRequest request,
+                                     StreamObserver<UserInteractionCheckResponse> responseObserver) {
+        boolean hasInteraction = recommendationService.hasUserInteraction(request.getUserId(), request.getEventId());
+        responseObserver.onNext(UserInteractionCheckResponse.newBuilder()
+                .setHasInteraction(hasInteraction)
+                .build());
         responseObserver.onCompleted();
     }
 }

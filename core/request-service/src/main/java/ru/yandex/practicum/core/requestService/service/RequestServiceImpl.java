@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import ru.practicum.statsclient.ActionType;
 import ru.practicum.statsclient.CollectorGrpcClient;
 import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
 import ru.yandex.practicum.common.eventService.event.enums.State;
@@ -21,8 +22,8 @@ import ru.yandex.practicum.common.userService.dto.UserDto;
 import ru.yandex.practicum.core.requestService.entity.ParticipationRequest;
 import ru.yandex.practicum.core.requestService.mapper.RequestMapper;
 import ru.yandex.practicum.core.requestService.repository.RequestRepository;
-import ru.yandex.practicum.grpc.stats.collector.ActionTypeProto;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -40,6 +41,7 @@ public class RequestServiceImpl implements RequestService {
     private final EventClient eventClient;
     private final TransactionTemplate transactionTemplate;
     private final CollectorGrpcClient collectorClient;
+    private final Clock clock;
 
     @Override
     public List<ParticipationRequestDto> getUserRequests(Long userId) {
@@ -118,9 +120,9 @@ public class RequestServiceImpl implements RequestService {
                 saveNewRequest(userId, eventId, status));
 
         try {
-            collectorClient.sendUserAction(userId, eventId, ActionTypeProto.ACTION_REGISTER);
+            collectorClient.sendUserAction(userId, eventId, ActionType.REGISTER, clock.instant());
         } catch (Exception e) {
-            log.warn("Не удалось отправить метрику в collector: {}", e.getMessage());
+            log.warn("Не удалось отправить метрику REGISTER в collector: {}", e.getMessage());
         }
 
         return requestMapper.toDto(request);

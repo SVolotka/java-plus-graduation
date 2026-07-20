@@ -22,7 +22,9 @@ import ru.practicum.event.repository.EventRepository;
 import ru.practicum.event.specification.AdminEventSpecification;
 import ru.practicum.event.specification.EventSpecification;
 import ru.practicum.event.specification.PublicEventSpecification;
+import ru.practicum.statsclient.ActionType;
 import ru.practicum.statsclient.AnalyzerGrpcClient;
+import ru.practicum.statsclient.CollectorGrpcClient;
 import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
 import ru.yandex.practicum.common.eventService.event.dto.EventShortDto;
 import ru.yandex.practicum.common.exception.ConflictException;
@@ -34,6 +36,7 @@ import ru.yandex.practicum.common.userService.dto.UserDto;
 import ru.yandex.practicum.common.userService.dto.UserShortDto;
 import ru.yandex.practicum.grpc.stats.dashboard.RecommendedEventProto;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -54,6 +57,8 @@ public class EventServiceImpl implements EventService {
     private final RequestClient requestClient;
     private final TransactionTemplate transactionTemplate;
     private final AnalyzerGrpcClient analyzerClient;
+    private final CollectorGrpcClient collectorClient;
+    private final Clock clock;
 
     @Override
     public List<EventShortDto> findEventsBy(PublicEventParam param) {
@@ -288,6 +293,18 @@ public class EventServiceImpl implements EventService {
         return eventRepository.existsById(id);
     }
 
+    @Override
+    public void likeEvent(long eventId, long userId) {
+        eventRepository.findById(eventId)
+                .orElseThrow(() -> new NotFoundException("Событие с id = " + eventId + " не найдено"));
+
+        if (!analyzerClient.hasUserInteraction(userId, eventId)) {
+            throw new ValidationException("Пользователь может лайкать только посещённые мероприятия.");
+        }
+
+        collectorClient.sendUserAction(userId, eventId, ActionType.LIKE, clock.instant());
+    }
+
     private void checkUserExists(Long userId) {
         UserDto user = userClient.getById(userId);
         if (user == null) {
@@ -361,7 +378,6 @@ public class EventServiceImpl implements EventService {
             return 0.0;
         }
     }
-
 
     private Map<Long, Long> getRequestsForEvents(List<Event> events) {
         if (events.isEmpty()) return Collections.emptyMap();

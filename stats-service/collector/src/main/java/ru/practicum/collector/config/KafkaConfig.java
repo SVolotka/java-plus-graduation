@@ -1,5 +1,6 @@
 package ru.practicum.collector.config;
 
+import jakarta.annotation.PreDestroy;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,8 @@ public class KafkaConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
+    private KafkaTemplate<Long, UserActionAvro> kafkaTemplate;
+
     @Bean
     public ProducerFactory<Long, UserActionAvro> producerFactory() {
         Map<String, Object> props = new HashMap<>();
@@ -31,6 +34,14 @@ public class KafkaConfig {
 
     @Bean
     public KafkaTemplate<Long, UserActionAvro> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
+        this.kafkaTemplate = new KafkaTemplate<>(producerFactory());
+        return this.kafkaTemplate;
+    }
+
+    @PreDestroy
+    public void flushOnShutdown() {
+        if (kafkaTemplate != null) {
+            kafkaTemplate.flush();
+        }
     }
 }

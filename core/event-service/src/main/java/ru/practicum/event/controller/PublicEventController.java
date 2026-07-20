@@ -8,14 +8,13 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.event.entityparam.PublicEventParam;
 import ru.practicum.event.service.EventService;
+import ru.practicum.statsclient.ActionType;
 import ru.practicum.statsclient.AnalyzerGrpcClient;
 import ru.practicum.statsclient.CollectorGrpcClient;
 import ru.yandex.practicum.common.eventService.event.dto.EventFullDto;
 import ru.yandex.practicum.common.eventService.event.dto.EventShortDto;
-import ru.yandex.practicum.common.feignClient.RequestClient;
-import ru.yandex.practicum.common.exception.ValidationException;
-import ru.yandex.practicum.grpc.stats.collector.ActionTypeProto;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,7 +28,7 @@ public class PublicEventController {
     private final EventService eventService;
     private final AnalyzerGrpcClient analyzerClient;
     private final CollectorGrpcClient collectorClient;
-    private final RequestClient requestClient;
+    private final Clock clock;
 
     @GetMapping
     public ResponseEntity<List<EventShortDto>> findEventsBy(
@@ -52,7 +51,7 @@ public class PublicEventController {
             @RequestHeader(value = "X-EWM-USER-ID", required = false) Long userId) {
         if (userId != null) {
             try {
-                collectorClient.sendUserAction(userId, id, ActionTypeProto.ACTION_VIEW);
+                collectorClient.sendUserAction(userId, id, ActionType.VIEW, clock.instant());
             } catch (Exception e) {
                 log.warn("Не удалось отправить метрику VIEW в collector: {}", e.getMessage());
             }
@@ -73,10 +72,7 @@ public class PublicEventController {
     public ResponseEntity<Void> likeEvent(
             @PathVariable long eventId,
             @RequestHeader("X-EWM-USER-ID") long userId) {
-        if (!requestClient.isUserConfirmed(userId, eventId)) {
-            throw new ValidationException("User must be registered for event before liking it.");
-        }
-        collectorClient.sendUserAction(userId, eventId, ActionTypeProto.ACTION_LIKE);
+        eventService.likeEvent(eventId, userId);
         return ResponseEntity.ok().build();
     }
 }
