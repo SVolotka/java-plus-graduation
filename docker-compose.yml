@@ -1,48 +1,93 @@
 services:
-  stats-server:
-    build:
-      context: ./stats-service/stats-server
-    image: stats-service
-    container_name: stats-service
+  discovery-server:
+    build: infra/discovery-server
+    container_name: discovery-server
     ports:
-      - "9090:9090"
+      - "8761:8761"
+    restart: on-failure
+
+  config-server:
+    build: infra/config-server
+    container_name: config-server
+    ports:
+      - "8888:8888"
     depends_on:
-      stats-db:
-        condition: service_healthy
+      discovery-server:
+        condition: service_started
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://stats-db:5432/stats
-      - SPRING_DATASOURCE_USERNAME=stats
-      - SPRING_DATASOURCE_PASSWORD=stats
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+    restart: on-failure
 
-  stats-db:
-    image: postgres:16.1
-    container_name: postgres-stats
-    ports:
-      - "8090:5432"
-    environment:
-      - POSTGRES_PASSWORD=stats
-      - POSTGRES_USER=stats
-      - POSTGRES_DB=stats
-    healthcheck:
-      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
-      timeout: 5s
-      interval: 5s
-      retries: 10
-
-  main-service:
-    build: main-service
-    image: main-service
-    container_name: main-service
+  gateway-server:
+    build: infra/gateway-server
+    container_name: gateway-server
     ports:
       - "8080:8080"
     depends_on:
-      main-db:
-        condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
     environment:
-      - CLIENT_URL=http://stats-server:9090
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://main-db:5432/main
-      - SPRING_DATASOURCE_USERNAME=main
-      - SPRING_DATASOURCE_PASSWORD=main
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+    restart: on-failure
+
+  kafka:
+    image: apache/kafka:3.7.1
+    restart: unless-stopped
+    ports: ["9092:9092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:29093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      CLUSTER_ID: K0EA9p0yEe6MkAAAAkKsEg
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list >/dev/null 2>&1"]
+      start_period: 20s
+      timeout: 10s
+      interval: 5s
+      retries: 12
+
+  kafka-init:
+    image: apache/kafka:3.7.1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      USER_ACTIONS_TOPIC: stats.user-actions.v1
+      EVENTS_SIMILARITY_TOPIC: stats.events-similarity.v1
+      KAFKA_TOPIC_PARTITIONS: 1
+      KAFKA_TOPIC_REPLICATION_FACTOR: 1
+    command:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server "$${KAFKA_BOOTSTRAP_SERVERS}" \
+          --create --if-not-exists \
+          --topic "$${USER_ACTIONS_TOPIC}" \
+          --partitions "$${KAFKA_TOPIC_PARTITIONS}" \
+          --replication-factor "$${KAFKA_TOPIC_REPLICATION_FACTOR}"
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server "$${KAFKA_BOOTSTRAP_SERVERS}" \
+          --create --if-not-exists \
+          --topic "$${EVENTS_SIMILARITY_TOPIC}" \
+          --partitions "$${KAFKA_TOPIC_PARTITIONS}" \
+          --replication-factor "$${KAFKA_TOPIC_REPLICATION_FACTOR}"
 
   main-db:
     image: postgres:16.1
@@ -50,11 +95,205 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_PASSWORD=main
-      - POSTGRES_USER=main
-      - POSTGRES_DB=main
+      POSTGRES_PASSWORD: main
+      POSTGRES_USER: main
+      POSTGRES_DB: main
     healthcheck:
-      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      test: ["CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER"]
       timeout: 5s
       interval: 5s
       retries: 10
+
+  request-db:
+    image: postgres:16.1
+    container_name: postgres-request
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_PASSWORD: request_service
+      POSTGRES_USER: request_service
+      POSTGRES_DB: request_service
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER"]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  user-db:
+    image: postgres:16.1
+    container_name: postgres-user
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_PASSWORD: user_service
+      POSTGRES_USER: user_service
+      POSTGRES_DB: user_service
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER"]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  comment-db:
+    image: postgres:16.1
+    container_name: postgres-comment
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_PASSWORD: comment_service
+      POSTGRES_USER: comment_service
+      POSTGRES_DB: comment_service
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER"]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  analyzer-db:
+    image: postgres:16.1
+    container_name: postgres-analyzer
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: analyzer
+      POSTGRES_USER: analyzer
+      POSTGRES_DB: analyzer
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER"]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  collector:
+    build: stats-service/collector
+    container_name: collector
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+    environment:
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      EUREKA_INSTANCE_HOSTNAME: collector
+    restart: on-failure
+
+  aggregator:
+    build: stats-service/aggregator
+    container_name: aggregator
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+    environment:
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      EUREKA_INSTANCE_HOSTNAME: aggregator
+    restart: on-failure
+
+  analyzer:
+    build: stats-service/analyzer
+    container_name: analyzer
+    depends_on:
+      analyzer-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+    environment:
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://analyzer-db:5432/analyzer
+      SPRING_DATASOURCE_USERNAME: analyzer
+      SPRING_DATASOURCE_PASSWORD: analyzer
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      EUREKA_INSTANCE_HOSTNAME: analyzer
+    restart: on-failure
+
+  event-service:
+    build: core/event-service
+    container_name: event-service
+    depends_on:
+      main-db:
+        condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+    environment:
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://main-db:5432/main
+      SPRING_DATASOURCE_USERNAME: main
+      SPRING_DATASOURCE_PASSWORD: main
+    restart: on-failure
+
+  user-service:
+    build: core/user-service
+    container_name: user-service
+    depends_on:
+      user-db:
+        condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+    environment:
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://user-db:5432/user_service
+      SPRING_DATASOURCE_USERNAME: user_service
+      SPRING_DATASOURCE_PASSWORD: user_service
+    restart: on-failure
+
+  request-service:
+    build: core/request-service
+    container_name: request-service
+    depends_on:
+      request-db:
+        condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+    environment:
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://request-db:5432/request_service
+      SPRING_DATASOURCE_USERNAME: request_service
+      SPRING_DATASOURCE_PASSWORD: request_service
+    restart: on-failure
+
+  comment-service:
+    build: core/comment-service
+    container_name: comment-service
+    depends_on:
+      comment-db:
+        condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+    environment:
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://comment-db:5432/comment_service
+      SPRING_DATASOURCE_USERNAME: comment_service
+      SPRING_DATASOURCE_PASSWORD: comment_service
+    restart: on-failure

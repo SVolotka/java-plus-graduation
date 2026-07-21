@@ -3,12 +3,14 @@ package ru.practicum.exception;
 import feign.FeignException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cloud.client.circuitbreaker.NoFallbackAvailableException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -21,7 +23,6 @@ import ru.yandex.practicum.common.exception.ValidationException;
 import ru.yandex.practicum.common.exception.model.ApiError;
 
 import java.time.LocalDateTime;
-
 
 @Slf4j
 @RestControllerAdvice
@@ -160,13 +161,40 @@ public class ErrorHandler {
                 .build();
     }
 
+    @ExceptionHandler(NoFallbackAvailableException.class)
+    public ResponseEntity<ApiError> handleNoFallback(NoFallbackAvailableException e) {
+        Throwable cause = e.getCause();
+        if (cause instanceof FeignException feignException) {
+            HttpStatus status = HttpStatus.resolve(feignException.status());
+            if (status == null) {
+                status = HttpStatus.INTERNAL_SERVER_ERROR;
+            }
+            log.warn("Feign error via circuit breaker: status={}, message={}", status, feignException.getMessage());
+            return ResponseEntity
+                    .status(status)
+                    .body(ApiError.builder()
+                            .status(status.name())
+                            .reason("External service error")
+                            .message(feignException.getMessage())
+                            .timestamp(LocalDateTime.now())
+                            .build());
+        }
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiError.builder()
+                        .status("INTERNAL_SERVER_ERROR")
+                        .reason("Unexpected error")
+                        .message(e.getMessage())
+                        .timestamp(LocalDateTime.now())
+                        .build());
+    }
+
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<ApiError> handleFeignException(FeignException e) {
         HttpStatus status = HttpStatus.resolve(e.status());
         if (status == null) {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
         }
-        log.warn("Ошибка при вызове другого сервиса: {}", e.getMessage());
+        log.warn("Feign error: status={}, message={}", status, e.getMessage());
         return ResponseEntity
                 .status(status)
                 .body(ApiError.builder()
@@ -197,6 +225,18 @@ public class ErrorHandler {
         return ApiError.builder()
                 .status("INTERNAL_SERVER_ERROR")
                 .reason("Unexpected error")
+                .message(e.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiError handleMissingServletRequestParameter(MissingServletRequestParameterException e) {
+        log.error("Missing parameter: {}", e.getMessage());
+        return ApiError.builder()
+                .status("BAD_REQUEST")
+                .reason("Incorrectly made request.")
                 .message(e.getMessage())
                 .timestamp(LocalDateTime.now())
                 .build();

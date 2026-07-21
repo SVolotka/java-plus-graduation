@@ -21,6 +21,9 @@ public interface RequestRepository extends JpaRepository<ParticipationRequest, L
 
     boolean existsByRequesterIdAndEventId(Long userId, Long eventId);
 
+    boolean existsByRequesterIdAndEventIdAndStatus(Long requesterId, Long eventId,
+                                                   ru.yandex.practicum.common.requestService.enums.RequestStatus status);
+
     @Query("SELECT COUNT(pr) FROM ParticipationRequest pr " +
             "WHERE pr.eventId = :eventId AND pr.status = 'CONFIRMED'")
     Long countConfirmedRequestsByEventId(@Param("eventId") Long eventId);

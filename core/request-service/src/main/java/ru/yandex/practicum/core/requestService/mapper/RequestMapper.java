@@ -13,30 +13,28 @@ import java.util.stream.Collectors;
 @Component
 public class RequestMapper {
 
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
 
     public ParticipationRequest toEntity(Long requesterId, Long eventId, RequestStatus status) {
         return ParticipationRequest.builder()
-                .created(LocalDateTime.now())
                 .requesterId(requesterId)
                 .eventId(eventId)
                 .status(status)
+                .created(LocalDateTime.now())
                 .build();
     }
 
     public ParticipationRequestDto toDto(ParticipationRequest request) {
         return ParticipationRequestDto.builder()
                 .id(request.getId())
-                .created(formatter.format(request.getCreated()))
-                .event(request.getEventId())
                 .requester(request.getRequesterId())
+                .event(request.getEventId())
                 .status(request.getStatus().name())
+                .created(request.getCreated() != null ? request.getCreated().format(FORMATTER) : null)
                 .build();
     }
 
     public List<ParticipationRequestDto> toDtoList(List<ParticipationRequest> requests) {
-        return requests.stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
+        return requests.stream().map(this::toDto).collect(Collectors.toList());
     }
 }

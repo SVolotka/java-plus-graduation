@@ -26,30 +26,30 @@ public class EventMapper {
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public EventFullDto toFullDto(Event event, UserShortDto initiator) {
-        EventFullDto eventFullDto = EventFullDto.builder()
+        EventFullDto dto = EventFullDto.builder()
                 .id(event.getId())
                 .annotation(event.getAnnotation())
                 .category(categoryMapper.toCategoryDto(event.getCategory()))
                 .description(event.getDescription())
                 .initiator(initiator)
                 .location(toLocationDto(event.getLocation()))
-                .paid(event.getPaid())
-                .participantLimit(event.getParticipantLimit())
-                .requestModeration(event.getRequestModeration())
+                .paid(event.getPaid() != null ? event.getPaid() : false)
+                .participantLimit(event.getParticipantLimit() != null ? event.getParticipantLimit() : 0)
+                .requestModeration(event.getRequestModeration() != null ? event.getRequestModeration() : true)
                 .state(String.valueOf(event.getState()))
                 .title(event.getTitle())
                 .build();
 
         if (event.getCreatedOn() != null) {
-            eventFullDto.setCreatedOn(formatter.format(event.getCreatedOn()));
+            dto.setCreatedOn(formatter.format(event.getCreatedOn()));
         }
         if (event.getEventDate() != null) {
-            eventFullDto.setEventDate(formatter.format(event.getEventDate()));
+            dto.setEventDate(formatter.format(event.getEventDate()));
         }
         if (event.getPublishedOn() != null) {
-            eventFullDto.setPublishedOn(formatter.format(event.getPublishedOn()));
+            dto.setPublishedOn(formatter.format(event.getPublishedOn()));
         }
-        return eventFullDto;
+        return dto;
     }
 
     public EventShortDto toShortDto(Event event, UserShortDto initiator) {
@@ -59,31 +59,31 @@ public class EventMapper {
                 .category(categoryMapper.toCategoryDto(event.getCategory()))
                 .eventDate(formatter.format(event.getEventDate()))
                 .initiator(initiator)
-                .paid(event.getPaid())
+                .paid(event.getPaid() != null ? event.getPaid() : false)
                 .title(event.getTitle())
                 .build();
     }
 
-    public List<EventShortDto> toListShortDtoWithViewsAndRequests(
-            List<Event> events, Map<Long, Long> viewsForEvents,
+    public List<EventShortDto> toListShortDtoWithRatingsAndRequests(
+            List<Event> events, Map<Long, Double> ratingsForEvents,
             Map<Long, Long> requests, Map<Long, UserShortDto> users) {
         return events.stream()
                 .map(e -> {
                     EventShortDto dto = toShortDto(e, users.get(e.getInitiatorId()));
-                    dto.setViews(viewsForEvents.getOrDefault(e.getId(), 0L));
+                    dto.setRating(ratingsForEvents.getOrDefault(e.getId(), 0.0));
                     dto.setConfirmedRequests(requests.getOrDefault(e.getId(), 0L));
                     return dto;
                 })
                 .toList();
     }
 
-    public List<EventFullDto> toListFullDtoWithViewsAndRequests(
-            List<Event> events, Map<Long, Long> viewsForEvents,
+    public List<EventFullDto> toListFullDtoWithRatingsAndRequests(
+            List<Event> events, Map<Long, Double> ratingsForEvents,
             Map<Long, Long> requests, Map<Long, UserShortDto> users) {
         return events.stream()
                 .map(e -> {
                     EventFullDto dto = toFullDto(e, users.get(e.getInitiatorId()));
-                    dto.setViews(viewsForEvents.getOrDefault(e.getId(), 0L));
+                    dto.setRating(ratingsForEvents.getOrDefault(e.getId(), 0.0));
                     dto.setConfirmedRequests(requests.getOrDefault(e.getId(), 0L));
                     return dto;
                 })
